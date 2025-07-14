@@ -60,4 +60,8 @@ cd Imaheprojects
 ---
 
 ## Need Help?
-If you have any issues running the project, please open an issue or contact the project maintainer. 
+If you have any issues running the project, please open an issue or contact the project maintainer.
+
+**Contact:**
+- Email: johnorlandsudoy49@gmail.com
+- Discord: JohnSudoy 
