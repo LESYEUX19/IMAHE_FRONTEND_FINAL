@@ -1,0 +1,60 @@
+@using Microsoft.AspNetCore.Components.Forms
+@inject IJSRuntime JS
+
+<div class="dragdrop-container" tabindex="0" @onclick="TriggerFileInput">
+    <InputFile @ref="fileInput" OnChange="OnInputFileChange" accept="image/*" multiple style="display:none" />
+    <div class="dragdrop-content">
+        @if (imagePreviews.Count == 0)
+        {
+            <div class="dragdrop-icon">📁</div>
+            <div class="dragdrop-text">Drag & Drop images here or <span class="dragdrop-link">click to select</span></div>
+            <div class="dragdrop-sub">(JPG, PNG, GIF, BMP, WEBP, SVG, etc.)</div>
+        }
+        else
+        {
+            <div class="dragdrop-preview-list">
+                @foreach (var img in imagePreviews)
+                {
+                    <div class="dragdrop-preview">
+                        <img src="@img" alt="Image preview" />
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private InputFile? fileInput;
+    private List<string> imagePreviews = new();
+
+    private async Task TriggerFileInput()
+    {
+        if (fileInput is not null)
+        {
+            await JS.InvokeVoidAsync("triggerFileInputClick", fileInput.Element);
+        }
+    }
+
+    private async Task OnInputFileChange(InputFileChangeEventArgs e)
+    {
+        await LoadImages(e.GetMultipleFiles());
+    }
+
+    private async Task LoadImages(IReadOnlyList<IBrowserFile> files)
+    {
+        imagePreviews.Clear();
+        foreach (var file in files)
+        {
+            if (file.ContentType.StartsWith("image/"))
+            {
+                var buffer = new byte[file.Size];
+                await file.OpenReadStream().ReadAsync(buffer);
+                var base64 = Convert.ToBase64String(buffer);
+                var imageDataUrl = $"data:{file.ContentType};base64,{base64}";
+                imagePreviews.Add(imageDataUrl);
+            }
+        }
+        StateHasChanged();
+    }
+} 
