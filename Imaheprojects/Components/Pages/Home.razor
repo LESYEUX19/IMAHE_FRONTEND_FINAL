@@ -1,26 +1,39 @@
 ﻿@page "/"
 @using Imahe.Components.Pages
-<div class="welcome-container">
-    <div class="welcome-left">
-        <h2>Welcome to</h2>
-        <h1 class="imahe-title">
-            <span>I</span>
-            <span>M</span>
-            <span>A</span>
-            <span>H</span>
-            <span>E</span>
-        </h1>
-        <div class="imahe-desc">where every Image finds its place...</div>
-        <div class="welcome-btns">
-            <button class="how-btn">HOW TO USE IMAHE</button>
-            <button class="sort-btn">SORT NOW!</button>
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<div class="main-layout" id="main-layout">
+    <div class="welcome-container">
+        <div class="welcome-left">
+            <h2>Welcome to</h2>
+            <h1 class="imahe-title">
+                <span>I</span>
+                <span>M</span>
+                <span>A</span>
+                <span>H</span>
+                <span>E</span>
+            </h1>
+            <div class="imahe-desc">where every Image finds its place...</div>
+            <div class="welcome-btns">
+                <button class="how-btn" @onclick="NavigateToHowUseImahe">HOW TO USE IMAHE</button>
+                <button class="sort-btn" @onclick="NavigateToSort">SORT NOW!</button>
+            </div>
         </div>
-    </div>
-    <div class="welcome-right">
-        <img src="/Assets/2nhero.jpg" alt="Hero Placeholder" class="hero-img" />
+        <div class="welcome-right">
+            <img src="/Assets/2nhero.jpg" alt="Hero Placeholder" class="hero-img" />
+        </div>
     </div>
 </div>
 
-<div class="dragdrop-section">
-    <DragDropImage />
-</div>
+@code {
+    private void NavigateToHowUseImahe()
+    {
+        Navigation.NavigateTo("/howuseimahe");
+    }
+
+    private void NavigateToSort()
+    {
+        Navigation.NavigateTo("/sort");
+    }
+}

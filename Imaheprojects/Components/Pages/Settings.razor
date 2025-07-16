@@ -1,0 +1,261 @@
+@page "/settings"
+@using System.Text.Json
+@using System.Text.Json.Serialization
+@inject HttpClient Http
+
+<div class="settings-container">
+    <h3>Classification Settings</h3>
+    
+    @if (isLoading)
+    {
+        <div class="loading-message">
+            <div class="spinner"></div>
+            <span>Loading settings...</span>
+        </div>
+    }
+    
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger">
+            <strong>Error:</strong> @errorMessage
+            <button @onclick="ClearError" class="close-btn">&times;</button>
+        </div>
+    }
+    
+    @if (!string.IsNullOrEmpty(successMessage))
+    {
+        <div class="alert alert-success">
+            <strong>Success:</strong> @successMessage
+            <button @onclick="ClearSuccess" class="close-btn">&times;</button>
+        </div>
+    }
+    
+    @if (settings != null)
+    {
+        <div class="settings-form">
+            <div class="settings-info">
+                <h4>📊 Image Quality Parameters</h4>
+                <p>Configure the thresholds for image classification. These settings determine what constitutes a "good" vs "bad" image.</p>
+            </div>
+            
+            <EditForm Model="@settings" OnValidSubmit="UpdateSettings">
+                <div class="settings-grid">
+                    <div class="form-group">
+                        <label for="minExposure">
+                            <span class="label-icon">🌅</span>
+                            Minimum Exposure
+                        </label>
+                        <InputNumber id="minExposure" @bind-Value="settings.MinExposure" class="form-control" step="0.1" />
+                        <small class="form-text">
+                            <strong>Range:</strong> 0.0 - 255.0 | <strong>Recommended:</strong> 50.0 - 100.0<br/>
+                            Lower bound for acceptable exposure values. Images with exposure below this threshold will be classified as "bad".
+                        </small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="maxExposure">
+                            <span class="label-icon">☀️</span>
+                            Maximum Exposure
+                        </label>
+                        <InputNumber id="maxExposure" @bind-Value="settings.MaxExposure" class="form-control" step="0.1" />
+                        <small class="form-text">
+                            <strong>Range:</strong> 0.0 - 255.0 | <strong>Recommended:</strong> 150.0 - 200.0<br/>
+                            Upper bound for acceptable exposure values. Images with exposure above this threshold will be classified as "bad".
+                        </small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="minSharpness">
+                            <span class="label-icon">🔍</span>
+                            Minimum Sharpness
+                        </label>
+                        <InputNumber id="minSharpness" @bind-Value="settings.MinSharpness" class="form-control" step="0.1" />
+                        <small class="form-text">
+                            <strong>Range:</strong> 0.0 - 1000.0 | <strong>Recommended:</strong> 100.0 - 300.0<br/>
+                            Minimum sharpness threshold for image quality. Images with sharpness below this threshold will be classified as "bad".
+                        </small>
+                    </div>
+                </div>
+                
+                <div class="settings-preview">
+                    <h5>📋 Current Settings Summary</h5>
+                    <div class="preview-grid">
+                        <div class="preview-item">
+                            <span class="preview-label">Exposure Range:</span>
+                            <span class="preview-value">@settings.MinExposure - @settings.MaxExposure</span>
+                        </div>
+                        <div class="preview-item">
+                            <span class="preview-label">Min Sharpness:</span>
+                            <span class="preview-value">@settings.MinSharpness</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary" disabled="@isUpdating">
+                        @if (isUpdating)
+                        {
+                            <span class="spinner-sm"></span>
+                            <span>Updating...</span>
+                        }
+                        else
+                        {
+                            <span>💾 Update Settings</span>
+                        }
+                    </button>
+                    <button type="button" class="btn btn-secondary" @onclick="LoadSettings" disabled="@isLoading">
+                        🔄 Refresh
+                    </button>
+                    <button type="button" class="btn btn-outline-info" @onclick="ResetToDefaults">
+                        ⚙️ Reset to Defaults
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    }
+</div>
+
+@code {
+    private SettingsModel? settings;
+    private bool isLoading = true;
+    private bool isUpdating = false;
+    private string errorMessage = "";
+    private string successMessage = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSettings();
+    }
+
+    private async Task LoadSettings()
+    {
+        isLoading = true;
+        errorMessage = "";
+        successMessage = "";
+        
+        try
+        {
+            settings = await Http.GetFromJsonAsync<SettingsModel>("http://localhost:8000/settings/");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load settings: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task UpdateSettings()
+    {
+        if (settings == null) return;
+        
+        // Validate settings before sending
+        if (settings.MinExposure >= settings.MaxExposure)
+        {
+            errorMessage = "Minimum exposure must be less than maximum exposure.";
+            return;
+        }
+        
+        if (settings.MinSharpness <= 0)
+        {
+            errorMessage = "Minimum sharpness must be greater than 0.";
+            return;
+        }
+        
+        isUpdating = true;
+        errorMessage = "";
+        successMessage = "";
+        
+        try
+        {
+            var response = await Http.PostAsJsonAsync("http://localhost:8000/settings/", settings);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                successMessage = "Settings updated successfully!";
+                // Reload settings to get the updated values from server
+                await LoadSettings();
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                
+                // Try to parse the error response for better user experience
+                try
+                {
+                    var errorJson = JsonSerializer.Deserialize<JsonElement>(errorContent);
+                    if (errorJson.TryGetProperty("detail", out var detail))
+                    {
+                        if (detail.ValueKind == JsonValueKind.Array)
+                        {
+                            var errors = new List<string>();
+                            foreach (var error in detail.EnumerateArray())
+                            {
+                                if (error.TryGetProperty("msg", out var msg))
+                                {
+                                    errors.Add(msg.GetString() ?? "Unknown error");
+                                }
+                            }
+                            errorMessage = $"Validation errors: {string.Join(", ", errors)}";
+                        }
+                        else
+                        {
+                            errorMessage = $"Server error: {detail.GetString() ?? errorContent}";
+                        }
+                    }
+                    else
+                    {
+                        errorMessage = $"Update failed: {response.StatusCode} - {errorContent}";
+                    }
+                }
+                catch
+                {
+                    errorMessage = $"Update failed: {response.StatusCode} - {errorContent}";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error updating settings: {ex.Message}";
+        }
+        finally
+        {
+            isUpdating = false;
+        }
+    }
+
+    private void ClearError()
+    {
+        errorMessage = "";
+    }
+
+    private void ClearSuccess()
+    {
+        successMessage = "";
+    }
+    
+    private void ResetToDefaults()
+    {
+        if (settings != null)
+        {
+            settings.MinExposure = 50.0f;
+            settings.MaxExposure = 200.0f;
+            settings.MinSharpness = 100.0f;
+            StateHasChanged();
+        }
+    }
+
+    public class SettingsModel
+    {
+        [JsonPropertyName("min_exposure")]
+        public float MinExposure { get; set; }
+        
+        [JsonPropertyName("max_exposure")]
+        public float MaxExposure { get; set; }
+        
+        [JsonPropertyName("min_sharpness")]
+        public float MinSharpness { get; set; }
+    }
+} 

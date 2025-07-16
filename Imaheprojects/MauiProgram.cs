@@ -15,6 +15,7 @@ namespace Imahe
                 });
 
             builder.Services.AddMauiBlazorWebView();
+            builder.Services.AddScoped(sp => new HttpClient());
 
 #if DEBUG
     		builder.Services.AddBlazorWebViewDeveloperTools();

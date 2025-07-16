@@ -29,6 +29,13 @@
       window.triggerFileInputClick = function (element) {
         if (element) element.click();
       }
+      
+      window.scrollToElement = function (elementId) {
+        const element = document.getElementById(elementId);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth' });
+        }
+      }
     </script>
 
 </body>
