@@ -264,11 +264,12 @@
         {
             var fileName = Path.GetFileName(filePath);
             var fileInfo = new FileInfo(filePath);
-            
+
             // Skip files over 10MB silently
             if (fileInfo.Length > MaxFileSize)
             {
                 processedCount++;
+                StateHasChanged();
                 continue;
             }
 
