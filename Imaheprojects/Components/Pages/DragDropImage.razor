@@ -264,23 +264,20 @@
         {
             var fileName = Path.GetFileName(filePath);
             var fileInfo = new FileInfo(filePath);
+            
+            // Skip files over 10MB silently
+            if (fileInfo.Length > MaxFileSize)
+            {
+                processedCount++;
+                continue;
+            }
+
             var preview = new ImagePreview { FileName = fileName, FileSize = fileInfo.Length, IsProcessing = true };
             imagePreviews.Add(preview);
             StateHasChanged();
 
             try
             {
-                // Validate file size
-                if (fileInfo.Length > MaxFileSize)
-                {
-                    preview.HasError = true;
-                    preview.ErrorMessage = "File exceeds 10MB limit.";
-                    preview.IsProcessing = false;
-                    processedCount++;
-                    StateHasChanged();
-                    continue;
-                }
-
                 // Send to backend with proper stream disposal
                 ClassificationResult result;
                 using (var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read))
