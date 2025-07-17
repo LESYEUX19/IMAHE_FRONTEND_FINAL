@@ -37,7 +37,7 @@
     <div class="image-upload-side-panel">
         <div class="image-upload-header">
             <h2 class="image-upload-title">Process Folder Images</h2>
-            <p class="image-upload-desc">Enter input and output folder paths to process and organize images. Supported formats: JPG, PNG, GIF, BMP, WEBP. Max 10MB per file.</p>
+            <p class="image-upload-desc">Enter input and output folder paths to process and organize images. Supported formats: JPG, PNG, GIF, BMP, WEBP. Max 1GB per file.</p>
             <div class="folder-selection">
                 <label>Input Folder:</label>
                 <input type="text" @bind="inputFolderPath" placeholder="Enter input folder (e.g., C:\Users\ADMIN\Desktop\testImage)" />
@@ -111,7 +111,7 @@
     private int selectedIndex = 0;
     private int processedCount = 0;
     private int totalFiles = 0;
-    private const long MaxFileSize = 10 * 1024 * 1024; // 10MB limit
+    private const long MaxFileSize = 1 * 1024 * 1024 * 1024; // 1GB limit
     private readonly string[] AllowedExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp" };
     private readonly string[] ClassificationFolders = { "Good", "Bad" }; // Excluding Duplicate
 
@@ -166,7 +166,7 @@
                             {
                                 badSummary = reason.GetString() ?? "Low quality image";
                             }
-                            if (Details.TryGetProperty("sharpness", out var sharpness) && 
+                            if (Details.TryGetProperty("sharpness", out var sharpness) &&
                                 Details.TryGetProperty("exposure", out var exposure))
                             {
                                 if (!string.IsNullOrEmpty(badSummary))
@@ -176,7 +176,7 @@
                             }
                             return string.IsNullOrEmpty(badSummary) ? "Low quality image" : badSummary;
                         case "good":
-                            if (Details.TryGetProperty("sharpness", out var goodSharpness) && 
+                            if (Details.TryGetProperty("sharpness", out var goodSharpness) &&
                                 Details.TryGetProperty("exposure", out var goodExposure))
                                 return $"✅ Good quality (Sharpness: {goodSharpness.GetDouble():F1}, Exposure: {goodExposure.GetDouble():F1})";
                             return "✅ Good quality image";
@@ -265,7 +265,7 @@
             var fileName = Path.GetFileName(filePath);
             var fileInfo = new FileInfo(filePath);
 
-            // Skip files over 10MB silently
+            // Skip files over 1GB silently
             if (fileInfo.Length > MaxFileSize)
             {
                 processedCount++;
@@ -291,17 +291,16 @@
                     var response = await Http.PostAsync("http://localhost:8000/upload-image/", content);
                     result = response.IsSuccessStatusCode
                         ? await response.Content.ReadFromJsonAsync<ClassificationResult>()
-                        : new ClassificationResult 
-                        { 
-                            Label = "Error", 
-                            Details = JsonSerializer.SerializeToElement($"Upload failed: {response.StatusCode}") 
+                        : new ClassificationResult
+                        {
+                            Label = "Error",
+                            Details = JsonSerializer.SerializeToElement($"Upload failed: {response.StatusCode}")
                         };
-                    preview.ClassificationResult = result ?? new ClassificationResult 
-                    { 
-                        Label = "Error", 
-                        Details = JsonSerializer.SerializeToElement("Invalid response") 
+                    preview.ClassificationResult = result ?? new ClassificationResult
+                    {
+                        Label = "Error",
+                        Details = JsonSerializer.SerializeToElement("Invalid response")
                     };
-                    uploadResults.Add(preview.ClassificationResult);
                 }
 
                 // Fetch preview from backend
@@ -352,10 +351,10 @@
             {
                 preview.HasError = true;
                 preview.ErrorMessage = ex.Message;
-                preview.ClassificationResult = new ClassificationResult 
-                { 
-                    Label = "Error", 
-                    Details = JsonSerializer.SerializeToElement(ex.Message) 
+                preview.ClassificationResult = new ClassificationResult
+                {
+                    Label = "Error",
+                    Details = JsonSerializer.SerializeToElement(ex.Message)
                 };
             }
             finally
