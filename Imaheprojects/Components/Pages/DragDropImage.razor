@@ -1,6 +1,6 @@
-@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components
 @using System.Text.Json
-@inject IJSRuntime JS
+@using System.IO
 @inject HttpClient Http
 
 <div class="image-upload-main-layout">
@@ -12,7 +12,7 @@
                 <img src="@imagePreviews[selectedIndex].ImageDataUrl" alt="@imagePreviews[selectedIndex].FileName" class="image-large-preview-img" />
                 <div class="image-large-info">
                     <div class="file-name">@imagePreviews[selectedIndex].FileName</div>
-                    <div class="file-size">@FormatFileSize(imagePreviews[selectedIndex].OriginalFile?.Size ?? 0)</div>
+                    <div class="file-size">@FormatFileSize(imagePreviews[selectedIndex].FileSize)</div>
                     @if (imagePreviews[selectedIndex].ClassificationResult != null)
                     {
                         <div class="classification-details">
@@ -33,46 +33,57 @@
         }
     </div>
 
-    <!-- Right: Upload & Thumbnails -->
+    <!-- Right: Processing Controls & Thumbnails -->
     <div class="image-upload-side-panel">
         <div class="image-upload-header">
-            <h2 class="image-upload-title">Upload Images for AI Classification</h2>
-            <p class="image-upload-desc">Select one or more images to classify. Supported formats: JPG, PNG, GIF, BMP, WEBP. Max 10MB per file. Note: remove the exsisting image befor select again</p>
-            <button class="select-images-btn" @onclick="TriggerFileInput" disabled="@isProcessingAny">📷 Select Images</button>
-            <InputFile @ref="fileInput" OnChange="OnInputFileChange" accept="image/*" multiple style="display:none" />
+            <h2 class="image-upload-title">Process Folder Images</h2>
+            <p class="image-upload-desc">Enter input and output folder paths to process and organize images. Supported formats: JPG, PNG, GIF, BMP, WEBP. Max 10MB per file.</p>
+            <div class="folder-selection">
+                <label>Input Folder:</label>
+                <input type="text" @bind="inputFolderPath" placeholder="Enter input folder (e.g., C:\Users\ADMIN\Desktop\testImage)" />
+            </div>
+            <div class="folder-selection">
+                <label>Output Folder:</label>
+                <input type="text" @bind="outputFolderPath" placeholder="Enter output folder (e.g., C:\Users\ADMIN\Desktop\Output)" />
+            </div>
+            @if (!string.IsNullOrEmpty(outputFolderPath))
+            {
+                <p class="folder-info">Output subfolders will be created at:<br />@Path.Combine(outputFolderPath, "Good")<br />@Path.Combine(outputFolderPath, "Bad")</p>
+            }
+            <button class="process-btn" @onclick="StartProcessing" disabled="@(string.IsNullOrEmpty(inputFolderPath) || string.IsNullOrEmpty(outputFolderPath) || isProcessingAny)">▶ Start Processing</button>
+            <div class="progress-bar">
+                Processed: @processedCount / @totalFiles
+                <progress value="@processedCount" max="@totalFiles"></progress>
+            </div>
         </div>
 
         @if (imagePreviews.Count > 0)
         {
-            <div class="image-thumbnail-grid">
-                @foreach (var (preview, index) in imagePreviews.Select((p, i) => (p, i)))
-                {
-                    <div class="image-thumbnail-card @(selectedIndex == index ? "selected" : "") @(preview.HasError ? "error" : "")" @onclick="() => SelectPreview(index)">
-                        <img src="@preview.ImageDataUrl" alt="@preview.FileName" class="image-thumbnail-img" />
-                        @if (preview.IsProcessing)
-                        {
-                            <div class="processing-overlay">
-                                <div class="processing-spinner"></div>
-                                <span>Processing...</span>
-                            </div>
-                        }
-                        @if (preview.HasError)
-                        {
-                            <div class="error-overlay">
-                                <div class="error-icon">⚠️</div>
-                                <span>Upload Failed</span>
-                            </div>
-                        }
-                        @if (preview.ClassificationResult != null && !preview.HasError)
-                        {
-                            <div class="classification-badge @GetBadgeClass(preview.ClassificationResult.Label)">
-                                @preview.ClassificationResult.Label
-                            </div>
-                        }
-                        <button class="remove-btn" @onclick:stopPropagation="true" @onclick="() => RemoveFile(index)" title="Remove file">×</button>
-                    </div>
-                }
-            </div>
+            <Virtualize Items="imagePreviews" Context="preview" OverscanCount="10">
+                <div class="image-thumbnail-card @(selectedIndex == imagePreviews.IndexOf(preview) ? "selected" : "") @(preview.HasError ? "error" : "")" @onclick="() => SelectPreview(imagePreviews.IndexOf(preview))">
+                    <img src="@preview.ImageDataUrl" alt="@preview.FileName" class="image-thumbnail-img" />
+                    @if (preview.IsProcessing)
+                    {
+                        <div class="processing-overlay">
+                            <div class="processing-spinner"></div>
+                            <span>Processing...</span>
+                        </div>
+                    }
+                    @if (preview.HasError)
+                    {
+                        <div class="error-overlay">
+                            <div class="error-icon">⚠️</div>
+                            <span>@preview.ErrorMessage</span>
+                        </div>
+                    }
+                    @if (preview.ClassificationResult != null && !preview.HasError)
+                    {
+                        <div class="classification-badge @GetBadgeClass(preview.ClassificationResult.Label)">
+                            @preview.ClassificationResult.Label
+                        </div>
+                    }
+                </div>
+            </Virtualize>
         }
         @if (!string.IsNullOrEmpty(errorMessage))
         {
@@ -80,7 +91,7 @@
                 <div class="alert-content">
                     <div class="alert-icon">⚠️</div>
                     <div class="alert-text">
-                        <strong>Upload Error:</strong> @errorMessage
+                        <strong>Error:</strong> @errorMessage
                     </div>
                     <button @onclick="ClearError" class="alert-close" title="Dismiss">×</button>
                 </div>
@@ -90,14 +101,19 @@
 </div>
 
 @code {
-    private InputFile? fileInput;
+    private string inputFolderPath = "";
+    private string outputFolderPath = "";
     private List<ImagePreview> imagePreviews = new();
+    private List<string> filePaths = new();
     private List<ClassificationResult> uploadResults = new();
     private string errorMessage = "";
-    private bool isProcessingAny => imagePreviews.Any(p => p.IsProcessing);
+    private bool isProcessingAny = false;
     private int selectedIndex = 0;
+    private int processedCount = 0;
+    private int totalFiles = 0;
     private const long MaxFileSize = 10 * 1024 * 1024; // 10MB limit
-    private readonly string[] AllowedExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg" };
+    private readonly string[] AllowedExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp" };
+    private readonly string[] ClassificationFolders = { "Good", "Bad" }; // Excluding Duplicate
 
     public class ImagePreview
     {
@@ -106,9 +122,8 @@
         public bool IsProcessing { get; set; }
         public bool HasError { get; set; }
         public string FileName { get; set; } = "";
-        public IBrowserFile? OriginalFile { get; set; }
+        public long FileSize { get; set; }
         public string ErrorMessage { get; set; } = "";
-        public bool ShowDetails { get; set; } = false;
     }
 
     public class ClassificationResult
@@ -116,7 +131,7 @@
         public string Status { get; set; } = "";
         public string Label { get; set; } = "";
         public JsonElement Details { get; set; }
-        
+
         public string GetDetailsString()
         {
             if (Details.ValueKind == JsonValueKind.String)
@@ -136,7 +151,7 @@
             }
             return Details.ToString();
         }
-        
+
         public string GetDetailsSummary()
         {
             if (Details.ValueKind == JsonValueKind.Object)
@@ -182,171 +197,157 @@
         }
     }
 
-    private async Task TriggerFileInput()
+    private async Task StartProcessing()
     {
-        if (fileInput is not null)
+        if (string.IsNullOrWhiteSpace(inputFolderPath) || string.IsNullOrWhiteSpace(outputFolderPath))
         {
-            await JS.InvokeVoidAsync("triggerFileInputClick", fileInput.Element);
+            errorMessage = "Please enter valid input and output folder paths.";
+            StateHasChanged();
+            return;
         }
-    }
 
-    private async Task OnInputFileChange(InputFileChangeEventArgs e)
-    {
+        isProcessingAny = true;
+        processedCount = 0;
+        imagePreviews.Clear();
+        uploadResults.Clear();
+        filePaths.Clear();
+        StateHasChanged();
+
         try
         {
-            var files = e.GetMultipleFiles();
-            await ProcessFileSelection(files);
+            // Validate input folder
+            if (!Directory.Exists(inputFolderPath))
+            {
+                errorMessage = "Input folder does not exist.";
+                isProcessingAny = false;
+                StateHasChanged();
+                return;
+            }
+
+            // Create output subfolders
+            Directory.CreateDirectory(outputFolderPath);
+            foreach (var folder in ClassificationFolders)
+            {
+                Directory.CreateDirectory(Path.Combine(outputFolderPath, folder));
+            }
+
+            // List image files in the input folder
+            filePaths = Directory.GetFiles(inputFolderPath)
+                .Where(f => AllowedExtensions.Contains(Path.GetExtension(f).ToLowerInvariant()))
+                .ToList();
+            totalFiles = filePaths.Count;
+            if (totalFiles == 0)
+            {
+                errorMessage = "No valid images found in the input folder.";
+                isProcessingAny = false;
+                StateHasChanged();
+                return;
+            }
+
+            // Process files one by one
+            await ProcessFilesSequentially();
         }
         catch (Exception ex)
         {
-            errorMessage = $"Error handling file selection: {ex.Message}";
+            errorMessage = $"Error accessing folders: {ex.Message}";
+        }
+        finally
+        {
+            isProcessingAny = false;
             StateHasChanged();
         }
     }
 
-    private async Task ProcessFileSelection(IReadOnlyList<IBrowserFile> files)
+    private async Task ProcessFilesSequentially()
     {
-        var validFiles = new List<IBrowserFile>();
-        var errors = new List<string>();
-
-        foreach (var file in files)
+        foreach (var filePath in filePaths)
         {
-            var validationResult = ValidateFile(file);
-            if (validationResult.IsValid)
-            {
-                validFiles.Add(file);
-            }
-            else
-            {
-                errors.Add(validationResult.ErrorMessage);
-            }
-        }
-
-        if (errors.Any())
-        {
-            errorMessage = string.Join("; ", errors);
-        }
-
-        if (validFiles.Any())
-        {
-            await LoadImages(validFiles);
-            await ProcessImages();
-            selectedIndex = 0;
-        }
-
-        StateHasChanged();
-    }
-
-    private (bool IsValid, string ErrorMessage) ValidateFile(IBrowserFile file)
-    {
-        if (!file.ContentType.StartsWith("image/"))
-        {
-            return (false, $"{file.Name} is not an image file");
-        }
-        var extension = Path.GetExtension(file.Name).ToLowerInvariant();
-        if (!AllowedExtensions.Contains(extension))
-        {
-            return (false, $"{file.Name} has unsupported format. Supported: {string.Join(", ", AllowedExtensions)}");
-        }
-        if (file.Size > MaxFileSize)
-        {
-            return (false, $"{file.Name} is too large ({FormatFileSize(file.Size)}). Maximum: {FormatFileSize(MaxFileSize)}");
-        }
-        return (true, "");
-    }
-
-    private async Task LoadImages(IReadOnlyList<IBrowserFile> files)
-    {
-        foreach (var file in files)
-        {
-            try
-            {
-                var imageDataUrl = await CreateImagePreview(file);
-                imagePreviews.Add(new ImagePreview 
-                { 
-                    ImageDataUrl = imageDataUrl,
-                    FileName = file.Name,
-                    IsProcessing = true,
-                    OriginalFile = file
-                });
-            }
-            catch (Exception ex)
-            {
-                errorMessage = $"Error loading {file.Name}: {ex.Message}";
-            }
-        }
-        StateHasChanged();
-    }
-
-    private async Task<string> CreateImagePreview(IBrowserFile file)
-    {
-        try
-        {
-            using var stream = file.OpenReadStream(maxAllowedSize: MaxFileSize);
-            using var ms = new MemoryStream();
-            await stream.CopyToAsync(ms);
-            var imageBytes = ms.ToArray();
-            var base64 = Convert.ToBase64String(imageBytes);
-            return $"data:{file.ContentType};base64,{base64}";
-        }
-        catch (Exception ex)
-        {
-            throw new Exception($"Failed to create preview for {file.Name}: {ex.Message}");
-        }
-    }
-
-    private async Task ProcessImages()
-    {
-        for (int i = 0; i < imagePreviews.Count; i++)
-        {
-            var preview = imagePreviews[i];
-            if (preview.OriginalFile == null) continue;
+            var fileName = Path.GetFileName(filePath);
+            var fileInfo = new FileInfo(filePath);
+            var preview = new ImagePreview { FileName = fileName, FileSize = fileInfo.Length, IsProcessing = true };
+            imagePreviews.Add(preview);
+            StateHasChanged();
 
             try
             {
-                preview.IsProcessing = true;
-                preview.HasError = false;
-                preview.ErrorMessage = "";
-                StateHasChanged();
-
-                var content = new MultipartFormDataContent();
-                var fileContent = new StreamContent(preview.OriginalFile.OpenReadStream(maxAllowedSize: MaxFileSize));
-                content.Add(fileContent, "file", preview.FileName);
-
-                var response = await Http.PostAsync("http://localhost:8000/upload-image/", content);
-                
-                if (response.IsSuccessStatusCode)
-                {
-                    var json = await response.Content.ReadAsStringAsync();
-                    var result = JsonSerializer.Deserialize<ClassificationResult>(json, 
-                        new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                    
-                    if (result != null)
-                    {
-                        preview.ClassificationResult = result;
-                        uploadResults.Add(result);
-                    }
-                    else
-                    {
-                        preview.HasError = true;
-                        preview.ErrorMessage = "Invalid response from server";
-                        preview.ClassificationResult = new ClassificationResult 
-                        { 
-                            Label = "Error", 
-                            Details = JsonSerializer.SerializeToElement("Invalid response from server")
-                        };
-                    }
-                }
-                else
+                // Validate file size
+                if (fileInfo.Length > MaxFileSize)
                 {
                     preview.HasError = true;
-                    var errorContent = await response.Content.ReadAsStringAsync();
-                    preview.ErrorMessage = $"Upload failed: {response.StatusCode}";
-                    preview.ClassificationResult = new ClassificationResult 
+                    preview.ErrorMessage = "File exceeds 10MB limit.";
+                    preview.IsProcessing = false;
+                    processedCount++;
+                    StateHasChanged();
+                    continue;
+                }
+
+                // Send to backend with proper stream disposal
+                ClassificationResult result;
+                using (var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read))
+                {
+                    var content = new MultipartFormDataContent();
+                    var fileContent = new StreamContent(stream);
+                    var extension = Path.GetExtension(fileName).TrimStart('.').ToLower();
+                    fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue($"image/{extension}");
+                    content.Add(fileContent, "file", fileName);
+                    var response = await Http.PostAsync("http://localhost:8000/upload-image/", content);
+                    result = response.IsSuccessStatusCode
+                        ? await response.Content.ReadFromJsonAsync<ClassificationResult>()
+                        : new ClassificationResult 
+                        { 
+                            Label = "Error", 
+                            Details = JsonSerializer.SerializeToElement($"Upload failed: {response.StatusCode}") 
+                        };
+                    preview.ClassificationResult = result ?? new ClassificationResult 
                     { 
                         Label = "Error", 
-                        Details = JsonSerializer.SerializeToElement($"Upload failed: {response.StatusCode} - {errorContent}")
+                        Details = JsonSerializer.SerializeToElement("Invalid response") 
                     };
+                    uploadResults.Add(preview.ClassificationResult);
+                }
+
+                // Fetch preview from backend
+                preview.ImageDataUrl = $"http://localhost:8000/static/images/{Uri.EscapeDataString(fileName)}";
+
+                // Move file to appropriate subfolder with retry logic
+                if (!preview.HasError && preview.ClassificationResult.Label is "Good" or "Bad")
+                {
+                    var destinationFolder = Path.Combine(outputFolderPath, preview.ClassificationResult.Label);
+                    var destinationPath = Path.Combine(destinationFolder, fileName);
+                    if (File.Exists(destinationPath))
+                    {
+                        // Handle filename conflicts
+                        var baseName = Path.GetFileNameWithoutExtension(fileName);
+                        var extensionWithDot = Path.GetExtension(fileName);
+                        destinationPath = Path.Combine(destinationFolder, $"{baseName}_{DateTime.Now.Ticks}{extensionWithDot}");
+                    }
+
+                    bool moved = false;
+                    for (int attempt = 0; attempt < 3 && !moved; attempt++)
+                    {
+                        try
+                        {
+                            File.Move(filePath, destinationPath);
+                            moved = true;
+                        }
+                        catch (IOException ex) when (ex.Message.Contains("being used by another process"))
+                        {
+                            if (attempt < 2)
+                            {
+                                await Task.Delay(1000); // Wait 1 second before retry
+                            }
+                            else
+                            {
+                                preview.HasError = true;
+                                preview.ErrorMessage = $"Failed to move file: {ex.Message}";
+                            }
+                        }
+                    }
+                }
+                else if (preview.ClassificationResult.Label == "Duplicate")
+                {
+                    // Skip moving Duplicate images
+                    preview.ErrorMessage = "Duplicate image not moved.";
                 }
             }
             catch (Exception ex)
@@ -356,32 +357,22 @@
                 preview.ClassificationResult = new ClassificationResult 
                 { 
                     Label = "Error", 
-                    Details = JsonSerializer.SerializeToElement(ex.Message)
+                    Details = JsonSerializer.SerializeToElement(ex.Message) 
                 };
-                errorMessage = $"Error processing {preview.FileName}: {ex.Message}";
             }
             finally
             {
                 preview.IsProcessing = false;
+                processedCount++;
                 StateHasChanged();
             }
         }
     }
 
-    private void RemoveFile(int index)
+    private void SelectPreview(int index)
     {
-        if (index >= 0 && index < imagePreviews.Count)
-        {
-            var preview = imagePreviews[index];
-            if (preview.ClassificationResult != null)
-            {
-                uploadResults.Remove(preview.ClassificationResult);
-            }
-            imagePreviews.RemoveAt(index);
-            if (selectedIndex >= imagePreviews.Count)
-                selectedIndex = Math.Max(0, imagePreviews.Count - 1);
-            StateHasChanged();
-        }
+        selectedIndex = index;
+        StateHasChanged();
     }
 
     private void ClearError()
@@ -390,35 +381,28 @@
         StateHasChanged();
     }
 
-    private void SelectPreview(int index)
-    {
-        selectedIndex = index;
-        StateHasChanged();
-    }
-    
     private string GetSummaryClass(string label)
     {
         return label.ToLower() switch
         {
             "good" => "good",
-            "bad" => "bad", 
+            "bad" => "bad",
             "duplicate" => "duplicate",
             _ => ""
         };
     }
-    
+
     private string GetBadgeClass(string label)
     {
         return label.ToLower() switch
         {
             "good" => "badge-good",
-            "bad" => "badge-bad", 
-            "flagged" => "badge-flagged",
+            "bad" => "badge-bad",
             "duplicate" => "badge-duplicate",
             _ => "badge-default"
         };
     }
-    
+
     private string FormatFileSize(long bytes)
     {
         string[] sizes = { "B", "KB", "MB", "GB" };
@@ -431,4 +415,4 @@
         }
         return $"{size:0.##} {sizes[order]}";
     }
-} 
+}
