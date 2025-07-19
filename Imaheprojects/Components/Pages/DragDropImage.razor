@@ -2,7 +2,6 @@
 @using System.Text.Json
 @using System.IO
 @inject HttpClient Http
-@inject IJSRuntime JSRuntime
 
 <div class="image-upload-main-layout">
 
@@ -39,14 +38,14 @@
     <div class="image-upload-side-panel">
         <div class="image-upload-header">
             <h2 class="image-upload-title">Process Folder Images</h2>
-            <p class="image-upload-desc">Select input and output folders to process and organize images. Supported formats: JPG, PNG, GIF, BMP, WEBP. Max 1GB per file.</p>
+            <p class="image-upload-desc">Enter input and output folder paths to process and organize images. Supported formats: JPG, PNG, GIF, BMP, WEBP. Max 1GB per file.</p>
             <div class="folder-selection">
                 <label>Input Folder:</label>
-                <button @onclick="SelectInputFolder">Select Input Folder</button>
+                <input type="text" @bind="inputFolderPath" placeholder="Enter input folder (e.g., C:\Users\ADMIN\Desktop\testImage)" />
             </div>
             <div class="folder-selection">
                 <label>Output Folder:</label>
-                <button @onclick="SelectOutputFolder">Select Output Folder</button>
+                <input type="text" @bind="outputFolderPath" placeholder="Enter output folder (e.g., C:\Users\ADMIN\Desktop\Output)" />
             </div>
             @if (!string.IsNullOrEmpty(outputFolderPath))
             {
@@ -233,40 +232,6 @@
                 }
             }
             return Details.ToString();
-        }
-    }
-
-    private async Task SelectInputFolder()
-    {
-        try
-        {
-            var paths = await JSRuntime.InvokeAsync<string[]>("openFolderDialog");
-            if (paths != null && paths.Length > 0)
-            {
-                inputFolderPath = Path.GetDirectoryName(paths[0]); // Get the directory from the first file
-            }
-        }
-        catch (Exception ex)
-        {
-            errorMessage = $"Error selecting input folder: {ex.Message}";
-            StateHasChanged();
-        }
-    }
-
-    private async Task SelectOutputFolder()
-    {
-        try
-        {
-            var paths = await JSRuntime.InvokeAsync<string[]>("openFolderDialog");
-            if (paths != null && paths.Length > 0)
-            {
-                outputFolderPath = Path.GetDirectoryName(paths[0]); // Get the directory from the first file
-            }
-        }
-        catch (Exception ex)
-        {
-            errorMessage = $"Error selecting output folder: {ex.Message}";
-            StateHasChanged();
         }
     }
 

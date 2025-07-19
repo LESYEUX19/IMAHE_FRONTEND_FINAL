@@ -36,28 +36,8 @@
                 element.scrollIntoView({ behavior: 'smooth' });
             }
         }
-
-        // Define the openFolderDialog function
-        window.openFolderDialog = function () {
-            // Create an input element for folder selection
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.webkitdirectory = true; // Allow folder selection
-            input.multiple = false; // Set to true if you want to allow multiple files
-
-            // Trigger the file input click
-            input.click();
-
-            // Optional: Handle the selected files
-            input.onchange = function (event) {
-                const files = event.target.files;
-                if (files.length > 0) {
-                    console.log("Selected folder:", files);
-                    // You can process the selected files here
-                }
-            };
-        };
     </script>
 
 </body>
+
 </html>
