@@ -2,8 +2,10 @@
 @using System.Text.Json
 @using System.IO
 @inject HttpClient Http
+@inject IJSRuntime JSRuntime
 
 <div class="image-upload-main-layout">
+
     <!-- Left: Large Preview -->
     <div class="image-large-preview-panel">
         @if (imagePreviews.Count > 0)
@@ -37,18 +39,18 @@
     <div class="image-upload-side-panel">
         <div class="image-upload-header">
             <h2 class="image-upload-title">Process Folder Images</h2>
-            <p class="image-upload-desc">Enter input and output folder paths to process and organize images. Supported formats: JPG, PNG, GIF, BMP, WEBP. Max 1GB per file.</p>
+            <p class="image-upload-desc">Select input and output folders to process and organize images. Supported formats: JPG, PNG, GIF, BMP, WEBP. Max 1GB per file.</p>
             <div class="folder-selection">
                 <label>Input Folder:</label>
-                <input type="text" @bind="inputFolderPath" placeholder="Enter input folder (e.g., C:\Users\ADMIN\Desktop\testImage)" />
+                <button @onclick="SelectInputFolder">Select Input Folder</button>
             </div>
             <div class="folder-selection">
                 <label>Output Folder:</label>
-                <input type="text" @bind="outputFolderPath" placeholder="Enter output folder (e.g., C:\Users\ADMIN\Desktop\Output)" />
+                <button @onclick="SelectOutputFolder">Select Output Folder</button>
             </div>
             @if (!string.IsNullOrEmpty(outputFolderPath))
             {
-                <p class="folder-info">Output subfolders will be created at:<br />@Path.Combine(outputFolderPath, "Good")<br />@Path.Combine(outputFolderPath, "Bad")</p>
+                <p class="folder-info">Output subfolders will be created at:<br />@Path.Combine(outputFolderPath, "Good")<br />@Path.Combine(outputFolderPath, "Bad")<br />@Path.Combine(outputFolderPath, "Duplicate")<br />@Path.Combine(outputFolderPath, "Closed Eye")</p>
             }
             <button class="process-btn" @onclick="StartProcessing" disabled="@(string.IsNullOrEmpty(inputFolderPath) || string.IsNullOrEmpty(outputFolderPath) || isProcessingAny)">▶ Start Processing</button>
             <div class="progress-bar">
@@ -57,48 +59,82 @@
             </div>
         </div>
 
+        <!-- Move the warning message to the left of the thumbnails -->
+        <div class="alert-container">
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger">
+                    <div class="alert-content">
+                        <div class="alert-icon">⚠️</div>
+                        <div class="alert-text">
+                            <strong>Error:</strong> @errorMessage
+                        </div>
+                        <button @onclick="ClearError" class="alert-close" title="Dismiss">×</button>
+                    </div>
+                </div>
+            }
+
+            @if (showNotification)
+            {
+                <div class="alert alert-warning">
+                    <div class="alert-content">
+                        <div class="alert-icon">⚠️</div>
+                        <div class="alert-text">
+                            <strong>Processing in progress!</strong> If you leave this page, the processing will be canceled.
+                        </div>
+                        <button @onclick="DismissNotification" class="alert-close" title="Dismiss">×</button>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- Thumbnails with Scroll -->
         @if (imagePreviews.Count > 0)
         {
-            <Virtualize Items="imagePreviews" Context="preview" OverscanCount="10">
-                <div class="image-thumbnail-card @(selectedIndex == imagePreviews.IndexOf(preview) ? "selected" : "") @(preview.HasError ? "error" : "")" @onclick="() => SelectPreview(imagePreviews.IndexOf(preview))">
-                    <img src="@preview.ImageDataUrl" alt="@preview.FileName" class="image-thumbnail-img" />
-                    @if (preview.IsProcessing)
-                    {
-                        <div class="processing-overlay">
-                            <div class="processing-spinner"></div>
-                            <span>Processing...</span>
-                        </div>
-                    }
-                    @if (preview.HasError)
-                    {
-                        <div class="error-overlay">
-                            <div class="error-icon">⚠️</div>
-                            <span>@preview.ErrorMessage</span>
-                        </div>
-                    }
-                    @if (preview.ClassificationResult != null && !preview.HasError)
-                    {
-                        <div class="classification-badge @GetBadgeClass(preview.ClassificationResult.Label)">
-                            @preview.ClassificationResult.Label
-                        </div>
-                    }
-                </div>
-            </Virtualize>
-        }
-        @if (!string.IsNullOrEmpty(errorMessage))
-        {
-            <div class="alert alert-danger">
-                <div class="alert-content">
-                    <div class="alert-icon">⚠️</div>
-                    <div class="alert-text">
-                        <strong>Error:</strong> @errorMessage
+            <div class="thumbnail-scroll-box">
+                <Virtualize Items="imagePreviews" Context="preview" OverscanCount="10">
+                    <div class="image-thumbnail-card @(selectedIndex == imagePreviews.IndexOf(preview) ? "selected" : "") @(preview.HasError ? "error" : "")" @onclick="() => SelectPreview(imagePreviews.IndexOf(preview))">
+                        <img src="@preview.ImageDataUrl" alt="@preview.FileName" class="image-thumbnail-img" />
+                        @if (preview.IsProcessing)
+                        {
+                            <div class="processing-overlay">
+                                <div class="processing-spinner"></div>
+                                <span>Processing...</span>
+                            </div>
+                        }
+                        @if (preview.HasError)
+                        {
+                            <div class="error-overlay">
+                                <div class="error-icon">⚠️</div>
+                                <span>@preview.ErrorMessage</span>
+                            </div>
+                        }
+                        @if (preview.ClassificationResult != null && !preview.HasError)
+                        {
+                            <div class="classification-badge @GetBadgeClass(preview.ClassificationResult.Label)">
+                                @preview.ClassificationResult.Label
+                            </div>
+                        }
                     </div>
-                    <button @onclick="ClearError" class="alert-close" title="Dismiss">×</button>
-                </div>
+                </Virtualize>
             </div>
         }
     </div>
 </div>
+
+<style>
+    .thumbnail-scroll-box {
+        height: 300px; /* Set a fixed height for the scroll box */
+        overflow-y: auto; /* Enable vertical scrolling */
+        border: 1px solid #ccc; /* Optional: Add a border */
+        padding: 10px; /* Optional: Add some padding */
+    }
+
+    .alert-container {
+        margin-bottom: 10px; /* Add some space below the alerts */
+        text-align: left; /* Align text to the left */
+    }
+</style>
 
 @code {
     private string inputFolderPath = "";
@@ -108,12 +144,13 @@
     private List<ClassificationResult> uploadResults = new();
     private string errorMessage = "";
     private bool isProcessingAny = false;
+    private bool showNotification = false; // New variable for notification
     private int selectedIndex = 0;
     private int processedCount = 0;
     private int totalFiles = 0;
     private const long MaxFileSize = 1 * 1024 * 1024 * 1024; // 1GB limit
     private readonly string[] AllowedExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp" };
-    private readonly string[] ClassificationFolders = { "Good", "Bad" }; // Excluding Duplicate
+    private readonly string[] ClassificationFolders = { "Good", "Bad", "Duplicate", "Closed Eye" }; // Updated to include new folders
 
     public class ImagePreview
     {
@@ -184,6 +221,8 @@
                             if (Details.TryGetProperty("message", out var message))
                                 return $"🔄 {message.GetString() ?? "Duplicate detected"}";
                             return "🔄 Duplicate detected";
+                        case "closed eye":
+                            return "👁️ Closed eye detected";
                         default:
                             return "Image analyzed";
                     }
@@ -197,6 +236,40 @@
         }
     }
 
+    private async Task SelectInputFolder()
+    {
+        try
+        {
+            var paths = await JSRuntime.InvokeAsync<string[]>("openFolderDialog");
+            if (paths != null && paths.Length > 0)
+            {
+                inputFolderPath = Path.GetDirectoryName(paths[0]); // Get the directory from the first file
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error selecting input folder: {ex.Message}";
+            StateHasChanged();
+        }
+    }
+
+    private async Task SelectOutputFolder()
+    {
+        try
+        {
+            var paths = await JSRuntime.InvokeAsync<string[]>("openFolderDialog");
+            if (paths != null && paths.Length > 0)
+            {
+                outputFolderPath = Path.GetDirectoryName(paths[0]); // Get the directory from the first file
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error selecting output folder: {ex.Message}";
+            StateHasChanged();
+        }
+    }
+
     private async Task StartProcessing()
     {
         if (string.IsNullOrWhiteSpace(inputFolderPath) || string.IsNullOrWhiteSpace(outputFolderPath))
@@ -207,6 +280,7 @@
         }
 
         isProcessingAny = true;
+        showNotification = true; // Show notification when processing starts
         processedCount = 0;
         imagePreviews.Clear();
         uploadResults.Clear();
@@ -220,6 +294,7 @@
             {
                 errorMessage = "Input folder does not exist.";
                 isProcessingAny = false;
+                showNotification = false; // Hide notification if there's an error
                 StateHasChanged();
                 return;
             }
@@ -240,6 +315,7 @@
             {
                 errorMessage = "No valid images found in the input folder.";
                 isProcessingAny = false;
+                showNotification = false; // Hide notification if there's an error
                 StateHasChanged();
                 return;
             }
@@ -254,6 +330,7 @@
         finally
         {
             isProcessingAny = false;
+            showNotification = false; // Hide notification when processing is done
             StateHasChanged();
         }
     }
@@ -307,7 +384,7 @@
                 preview.ImageDataUrl = $"http://localhost:8000/static/images/{Uri.EscapeDataString(fileName)}";
 
                 // Move file to appropriate subfolder with retry logic
-                if (!preview.HasError && preview.ClassificationResult.Label is "Good" or "Bad")
+                if (!preview.HasError && (preview.ClassificationResult.Label is "Good" or "Bad" or "Duplicate" or "Closed Eye"))
                 {
                     var destinationFolder = Path.Combine(outputFolderPath, preview.ClassificationResult.Label);
                     var destinationPath = Path.Combine(destinationFolder, fileName);
@@ -378,6 +455,12 @@
         StateHasChanged();
     }
 
+    private void DismissNotification()
+    {
+        showNotification = false; // Hide notification when dismissed
+        StateHasChanged();
+    }
+
     private string GetSummaryClass(string label)
     {
         return label.ToLower() switch
@@ -385,6 +468,7 @@
             "good" => "good",
             "bad" => "bad",
             "duplicate" => "duplicate",
+            "closed eye" => "closed-eye", // Added for styling if needed
             _ => ""
         };
     }
@@ -396,6 +480,7 @@
             "good" => "badge-good",
             "bad" => "badge-bad",
             "duplicate" => "badge-duplicate",
+            "closed eye" => "badge-closed-eye", // Added for styling if needed
             _ => "badge-default"
         };
     }
