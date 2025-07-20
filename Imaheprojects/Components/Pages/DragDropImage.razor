@@ -49,7 +49,7 @@
             </div>
             @if (!string.IsNullOrEmpty(outputFolderPath))
             {
-                <p class="folder-info">Output subfolders will be created at:<br />@Path.Combine(outputFolderPath, "Good")<br />@Path.Combine(outputFolderPath, "Bad")<br />@Path.Combine(outputFolderPath, "Duplicate")<br />@Path.Combine(outputFolderPath, "Closed Eye")</p>
+                <p class="folder-info">Output subfolders will be created at:<br />@Path.Combine(outputFolderPath, "Landscape")<br />@Path.Combine(outputFolderPath, "Portrait")</p>
             }
             <button class="process-btn" @onclick="StartProcessing" disabled="@(string.IsNullOrEmpty(inputFolderPath) || string.IsNullOrEmpty(outputFolderPath) || isProcessingAny)">▶ Start Processing</button>
             <div class="progress-bar">
@@ -58,7 +58,6 @@
             </div>
         </div>
 
-        <!-- Move the warning message to the left of the thumbnails -->
         <div class="alert-container">
             @if (!string.IsNullOrEmpty(errorMessage))
             {
@@ -87,7 +86,6 @@
             }
         </div>
 
-        <!-- Thumbnails with Scroll -->
         @if (imagePreviews.Count > 0)
         {
             <div class="thumbnail-scroll-box">
@@ -140,7 +138,6 @@
     private string outputFolderPath = "";
     private List<ImagePreview> imagePreviews = new();
     private List<string> filePaths = new();
-    private List<ClassificationResult> uploadResults = new();
     private string errorMessage = "";
     private bool isProcessingAny = false;
     private bool showNotification = false; // New variable for notification
@@ -248,7 +245,6 @@
         showNotification = true; // Show notification when processing starts
         processedCount = 0;
         imagePreviews.Clear();
-        uploadResults.Clear();
         filePaths.Clear();
         StateHasChanged();
 
@@ -264,11 +260,18 @@
                 return;
             }
 
-            // Create output subfolders
+            // Create output subfolders for Landscape and Portrait
             Directory.CreateDirectory(outputFolderPath);
-            foreach (var folder in ClassificationFolders)
+            var landscapeFolder = Path.Combine(outputFolderPath, "Landscape");
+            var portraitFolder = Path.Combine(outputFolderPath, "Portrait");
+            Directory.CreateDirectory(landscapeFolder);
+            Directory.CreateDirectory(portraitFolder);
+
+            // Create classification folders inside Landscape and Portrait
+            foreach (var classification in ClassificationFolders)
             {
-                Directory.CreateDirectory(Path.Combine(outputFolderPath, folder));
+                Directory.CreateDirectory(Path.Combine(landscapeFolder, classification));
+                Directory.CreateDirectory(Path.Combine(portraitFolder, classification));
             }
 
             // List image files in the input folder
@@ -286,7 +289,7 @@
             }
 
             // Process files one by one
-            await ProcessFilesSequentially();
+            await ProcessFilesSequentially(landscapeFolder, portraitFolder);
         }
         catch (Exception ex)
         {
@@ -300,7 +303,7 @@
         }
     }
 
-    private async Task ProcessFilesSequentially()
+    private async Task ProcessFilesSequentially(string landscapeFolder, string portraitFolder)
     {
         foreach (var filePath in filePaths)
         {
@@ -321,6 +324,10 @@
 
             try
             {
+                // Get image dimensions
+                (int width, int height) = GetImageDimensions(filePath);
+                string orientation = width > height ? "Landscape" : "Portrait";
+
                 // Send to backend with proper stream disposal
                 ClassificationResult result;
                 using (var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read))
@@ -345,48 +352,60 @@
                     };
                 }
 
+                // Log the classification result for debugging
+                Console.WriteLine($"File: {fileName}, Classification: {preview.ClassificationResult.Label}");
+
                 // Fetch preview from backend
                 preview.ImageDataUrl = $"http://localhost:8000/static/images/{Uri.EscapeDataString(fileName)}";
 
-                // Move file to appropriate subfolder with retry logic
-                if (!preview.HasError && (preview.ClassificationResult.Label is "Good" or "Bad" or "Duplicate" or "Closed Eye"))
+                // Move file to appropriate subfolder based on orientation and classification
+                if (!preview.HasError)
                 {
-                    var destinationFolder = Path.Combine(outputFolderPath, preview.ClassificationResult.Label);
-                    var destinationPath = Path.Combine(destinationFolder, fileName);
-                    if (File.Exists(destinationPath))
-                    {
-                        // Handle filename conflicts
-                        var baseName = Path.GetFileNameWithoutExtension(fileName);
-                        var extensionWithDot = Path.GetExtension(fileName);
-                        destinationPath = Path.Combine(destinationFolder, $"{baseName}_{DateTime.Now.Ticks}{extensionWithDot}");
-                    }
+                    string classificationLabel = preview.ClassificationResult.Label;
 
-                    bool moved = false;
-                    for (int attempt = 0; attempt < 3 && !moved; attempt++)
+                    // Check if the classification is valid
+                    if (classificationLabel == "Good" || classificationLabel == "Bad" || classificationLabel == "Duplicate" || classificationLabel == "Closed Eye")
                     {
-                        try
+                        var destinationFolder = orientation == "Landscape" ? landscapeFolder : portraitFolder;
+                        var classificationFolder = Path.Combine(destinationFolder, classificationLabel);
+                        Directory.CreateDirectory(classificationFolder); // Create classification folder if it doesn't exist
+
+                        var destinationPath = Path.Combine(classificationFolder, fileName);
+                        if (File.Exists(destinationPath))
                         {
-                            File.Move(filePath, destinationPath);
-                            moved = true;
+                            // Handle filename conflicts
+                            var baseName = Path.GetFileNameWithoutExtension(fileName);
+                            var extensionWithDot = Path.GetExtension(fileName);
+                            destinationPath = Path.Combine(classificationFolder, $"{baseName}_{DateTime.Now.Ticks}{extensionWithDot}");
                         }
-                        catch (IOException ex) when (ex.Message.Contains("being used by another process"))
+
+                        bool moved = false;
+                        for (int attempt = 0; attempt < 3 && !moved; attempt++)
                         {
-                            if (attempt < 2)
+                            try
                             {
-                                await Task.Delay(1000); // Wait 1 second before retry
+                                File.Move(filePath, destinationPath);
+                                moved = true;
                             }
-                            else
+                            catch (IOException ex) when (ex.Message.Contains("being used by another process"))
                             {
-                                preview.HasError = true;
-                                preview.ErrorMessage = $"Failed to move file: {ex.Message}";
+                                if (attempt < 2)
+                                {
+                                    await Task.Delay(1000); // Wait 1 second before retry
+                                }
+                                else
+                                {
+                                    preview.HasError = true;
+                                    preview.ErrorMessage = $"Failed to move file: {ex.Message}";
+                                }
                             }
                         }
                     }
-                }
-                else if (preview.ClassificationResult.Label == "Duplicate")
-                {
-                    // Skip moving Duplicate images
-                    preview.ErrorMessage = "Duplicate image not moved.";
+                    else
+                    {
+                        preview.HasError = true;
+                        preview.ErrorMessage = "Invalid classification result.";
+                    }
                 }
             }
             catch (Exception ex)
@@ -405,6 +424,14 @@
                 processedCount++;
                 StateHasChanged();
             }
+        }
+    }
+
+    private (int width, int height) GetImageDimensions(string filePath)
+    {
+        using (var image = System.Drawing.Image.FromFile(filePath))
+        {
+            return (image.Width, image.Height);
         }
     }
 
