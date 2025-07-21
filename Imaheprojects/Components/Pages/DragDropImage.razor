@@ -146,7 +146,7 @@
     private int totalFiles = 0;
     private const long MaxFileSize = 1 * 1024 * 1024 * 1024; // 1GB limit
     private readonly string[] AllowedExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp" };
-    private readonly string[] ClassificationFolders = { "Good", "Bad", "Duplicate" }; // Added "Duplicate" folder back
+    private readonly string[] ClassificationFolders = { "Good", "Bad", "Duplicate", "Closed Eye" }; // Ensure all folders are included
 
     public class ImagePreview
     {
@@ -217,6 +217,8 @@
                             if (Details.TryGetProperty("message", out var message))
                                 return $"🔄 {message.GetString() ?? "Duplicate detected"}";
                             return "🔄 Duplicate detected";
+                        case "closed eye":
+                            return "👁️ Closed eye detected";
                         default:
                             return "Image analyzed";
                     }
@@ -362,7 +364,7 @@
                     string classificationLabel = preview.ClassificationResult.Label;
 
                     // Check if the classification is valid
-                    if (classificationLabel == "Good" || classificationLabel == "Bad" || classificationLabel == "Duplicate")
+                    if (classificationLabel == "Good" || classificationLabel == "Bad" || classificationLabel == "Duplicate" || classificationLabel == "Closed Eye")
                     {
                         var destinationFolder = orientation == "Landscape" ? landscapeFolder : portraitFolder;
                         var classificationFolder = Path.Combine(destinationFolder, classificationLabel);
@@ -458,6 +460,7 @@
             "good" => "good",
             "bad" => "bad",
             "duplicate" => "duplicate", // Added for styling if needed
+            "closed eye" => "closed-eye", // Added for styling if needed
             _ => ""
         };
     }
@@ -469,6 +472,7 @@
             "good" => "badge-good",
             "bad" => "badge-bad",
             "duplicate" => "badge-duplicate", // Added for styling if needed
+            "closed eye" => "badge-closed-eye", // Added for styling if needed
             _ => "badge-default"
         };
     }
