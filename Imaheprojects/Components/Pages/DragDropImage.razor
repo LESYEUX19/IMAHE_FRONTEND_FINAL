@@ -38,7 +38,7 @@
     <div class="image-upload-side-panel">
         <div class="image-upload-header">
             <h2 class="image-upload-title">Process Folder Images</h2>
-            <p class="image-upload-desc">Enter input and output folder paths to process and organize images. Supported formats: JPG, PNG, GIF, BMP, WEBP. Max 1GB per file.</p>
+            <p class="image-upload-desc">Enter input and output folder paths to process and organize images. Supported formats: JPG, PNG, GIF, BMP. Max 1GB per file.</p>
             <div class="folder-selection">
                 <label>Input Folder:</label>
                 <input type="text" @bind="inputFolderPath" placeholder="Enter input folder (e.g., C:\Users\ADMIN\Desktop\testImage)" />
@@ -146,7 +146,7 @@
     private int totalFiles = 0;
     private const long MaxFileSize = 1 * 1024 * 1024 * 1024; // 1GB limit
     private readonly string[] AllowedExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp" };
-    private readonly string[] ClassificationFolders = { "Good", "Bad", "Duplicate", "Closed Eye" }; // Updated to include new folders
+    private readonly string[] ClassificationFolders = { "Good", "Bad", "Duplicate" }; // Added "Duplicate" folder back
 
     public class ImagePreview
     {
@@ -217,8 +217,6 @@
                             if (Details.TryGetProperty("message", out var message))
                                 return $"🔄 {message.GetString() ?? "Duplicate detected"}";
                             return "🔄 Duplicate detected";
-                        case "closed eye":
-                            return "👁️ Closed eye detected";
                         default:
                             return "Image analyzed";
                     }
@@ -364,7 +362,7 @@
                     string classificationLabel = preview.ClassificationResult.Label;
 
                     // Check if the classification is valid
-                    if (classificationLabel == "Good" || classificationLabel == "Bad" || classificationLabel == "Duplicate" || classificationLabel == "Closed Eye")
+                    if (classificationLabel == "Good" || classificationLabel == "Bad" || classificationLabel == "Duplicate")
                     {
                         var destinationFolder = orientation == "Landscape" ? landscapeFolder : portraitFolder;
                         var classificationFolder = Path.Combine(destinationFolder, classificationLabel);
@@ -459,8 +457,7 @@
         {
             "good" => "good",
             "bad" => "bad",
-            "duplicate" => "duplicate",
-            "closed eye" => "closed-eye", // Added for styling if needed
+            "duplicate" => "duplicate", // Added for styling if needed
             _ => ""
         };
     }
@@ -471,8 +468,7 @@
         {
             "good" => "badge-good",
             "bad" => "badge-bad",
-            "duplicate" => "badge-duplicate",
-            "closed eye" => "badge-closed-eye", // Added for styling if needed
+            "duplicate" => "badge-duplicate", // Added for styling if needed
             _ => "badge-default"
         };
     }
