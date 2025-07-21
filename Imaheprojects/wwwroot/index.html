@@ -26,6 +26,7 @@
     <script src="_framework/blazor.webview.js" autostart="false"></script>
 
     <script>
+        // Existing helper
         window.triggerFileInputClick = function (element) {
             if (element) element.click();
         }
@@ -36,8 +37,9 @@
                 element.scrollIntoView({ behavior: 'smooth' });
             }
         }
+
+        // The window.pickFolder function has been removed.
     </script>
 
 </body>
-
 </html>

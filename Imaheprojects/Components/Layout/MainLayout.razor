@@ -1,31 +1,138 @@
 ﻿@inherits LayoutComponentBase
+@inject AppState AppState
+@inject NavigationManager NavManager
+@implements IDisposable
+
+<!-- The confirmation dialog pop-up -->
+@if (showConfirmationDialog)
+{
+    <div class="confirmation-overlay">
+        <div class="confirmation-dialog">
+            <h4>Processing in Progress</h4>
+            <p>Leaving this page will cancel the current image processing batch. Are you sure you want to proceed?</p>
+            <div class="dialog-buttons">
+                <button class="btn btn-danger" @onclick="ConfirmAndNavigate">Yes, Cancel and Leave</button>
+                <button class="btn btn-secondary" @onclick="CancelNavigation">No, Stay Here</button>
+            </div>
+        </div>
+    </div>
+}
 
 <div class="premium-layout">
     <nav class="premium-navbar">
-        <NavLink class="nav-btn" href="/" ActiveClass="active">IMAHE</NavLink>
-        <NavLink class="nav-btn" href="/settings" ActiveClass="active">SETTINGS</NavLink>
-        <NavLink class="nav-btn" href="/learn-more" ActiveClass="active">LEARN MORE</NavLink>
-        <NavLink class="nav-btn" href="/about" ActiveClass="active">ABOUT US</NavLink>
-        <NavLink class="nav-btn" href="/developer" ActiveClass="active">DEVELOPERS</NavLink>
-        <NavLink class="nav-btn" href="/health" ActiveClass="active">HEALTH</NavLink>
+        <!-- The click interception logic for the nav links -->
+        <div>
+            <a class="nav-btn" @onclick='() => HandleNavigation("/")' href="javascript:void(0);">IMAHE</a>
+            <a class="nav-btn" @onclick='() => HandleNavigation("/settings")' href="javascript:void(0);">SETTINGS</a>
+            <a class="nav-btn" @onclick='() => HandleNavigation("/learn-more")' href="javascript:void(0);">LEARN MORE</a>
+            <a class="nav-btn" @onclick='() => HandleNavigation("/about")' href="javascript:void(0);">ABOUT US</a>
+            <a class="nav-btn" @onclick='() => HandleNavigation("/developer")' href="javascript:void(0);">DEVELOPERS</a>
+            <a class="nav-btn" @onclick='() => HandleNavigation("/health")' href="javascript:void(0);">HEALTH</a>
+        </div>
     </nav>
     <main class="premium-main">
+        <!-- ✅ The @Body that was causing the error -->
         @Body
     </main>
     <footer class="premium-footer">
         <div class="footer-content">
-            <p>&copy; 2025 I M A H E. All rights reserved. | Privacy Policy | Terms of Service | Contact Us: imahesorting@gmail.com</p>
+            <p>© 2025 I M A H E. All rights reserved. | Privacy Policy | Terms of Service | Contact Us: imahesorting@gmail.com</p>
         </div>
     </footer>
 </div>
 
 <style>
+    .confirmation-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.6);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1050;
+    }
+
+    .confirmation-dialog {
+        background-color: white;
+        padding: 25px;
+        border-radius: 8px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        text-align: center;
+        max-width: 400px;
+    }
+
+        .confirmation-dialog h4 {
+            margin-top: 0;
+        }
+
+    .dialog-buttons {
+        margin-top: 20px;
+        display: flex;
+        justify-content: space-around;
+    }
+
     .premium-footer {
-        background-color: #f8f9fa; /* Light background color */
-        padding: 5px; /* Padding for the footer */
-        text-align: center; /* Centered text */
-        position: relative; /* Positioning */
-        bottom: 0; /* Align to the bottom */
-        width: 100%; /* Full width */
+        background-color: #f8f9fa;
+        padding: 5px;
+        text-align: center;
+        position: relative;
+        bottom: 0;
+        width: 100%;
     }
 </style>
+
+@code {
+    private bool showConfirmationDialog = false;
+    private string? pendingNavigationUrl;
+
+    protected override void OnInitialized()
+    {
+        AppState.OnChange += OnAppStateChanged;
+    }
+
+    private async void OnAppStateChanged()
+    {
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void HandleNavigation(string url)
+    {
+        if (AppState.IsProcessing)
+        {
+            pendingNavigationUrl = url;
+            showConfirmationDialog = true;
+        }
+        else
+        {
+            NavManager.NavigateTo(url);
+        }
+    }
+
+    private void ConfirmAndNavigate()
+    {
+        showConfirmationDialog = false;
+        AppState.ProcessingCancellationTokenSource?.Cancel();
+        if (!string.IsNullOrEmpty(pendingNavigationUrl))
+        {
+            NavManager.NavigateTo(pendingNavigationUrl);
+        }
+        pendingNavigationUrl = null;
+    }
+
+    private void CancelNavigation()
+    {
+        showConfirmationDialog = false;
+        pendingNavigationUrl = null;
+    }
+
+    public void Dispose()
+    {
+        AppState.OnChange -= OnAppStateChanged;
+    }
+}
+```
+
+After pasting this code, **do a full Clean and Rebuild of your solution** one more time to be safe, and the startup error will be gone.
