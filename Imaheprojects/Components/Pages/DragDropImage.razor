@@ -3,9 +3,10 @@
 @using System.IO
 @using CommunityToolkit.Maui.Storage
 @using Imahe
+@using System.Diagnostics
+@using System.Threading
 
 <div class="image-upload-main-layout">
-    <!-- The HTML is unchanged and complete -->
     <div class="image-large-preview-panel">
         @if (imagePreviews.Count > 0 && selectedIndex < imagePreviews.Count)
         {
@@ -40,12 +41,12 @@
             <div class="folder-selection">
                 <label><strong>Input Folder:</strong></label><br />
                 <button class="btn btn-primary" @onclick="SelectInputFolder" disabled="@isProcessingAny">Choose Input Folder</button>
-                <p>@inputFolderPath</p>
+                <code class="folder-path-display">@inputFolderPath</code>
             </div>
             <div class="folder-selection">
                 <label><strong>Output Folder:</strong></label><br />
                 <button class="btn btn-primary" @onclick="SelectOutputFolder" disabled="@isProcessingAny">Choose Output Folder</button>
-                <p>@outputFolderPath</p>
+                <code class="folder-path-display">@outputFolderPath</code>
             </div>
             @if (!string.IsNullOrEmpty(outputFolderPath))
             {
@@ -56,6 +57,14 @@
                 Processed: @processedCount / @totalFiles
                 <progress value="@processedCount" max="@totalFiles"></progress>
             </div>
+
+            @if (!string.IsNullOrEmpty(formattedDuration))
+            {
+                <div class="duration-display">
+                    <strong>@formattedDuration</strong>
+                </div>
+            }
+
         </div>
         <div class="alert-container">
             @if (!string.IsNullOrEmpty(errorMessage))
@@ -122,13 +131,30 @@
     .alert-close {
         cursor: pointer;
     }
+
+    .duration-display {
+        font-size: 0.9em;
+        color: #333;
+        margin-top: 8px;
+        text-align: center;
+    }
+
+    .folder-path-display {
+        display: block;
+        background-color: #f4f4f4;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 6px 10px;
+        margin-top: 5px;
+        font-family: monospace;
+        word-wrap: break-word;
+        min-height: 1.5em;
+    }
 </style>
 
 @code {
     [Inject] private IJSRuntime JS { get; set; } = default!;
     [Inject] private HttpClient Http { get; set; } = default!;
-
-    // ✅ Inject the shared state service
     [Inject] private AppState AppState { get; set; } = default!;
 
     private string inputFolderPath = "";
@@ -141,6 +167,9 @@
     private int processedCount = 0;
     private int totalFiles = 0;
     private const long MaxFileSize = 1L * 1024 * 1024 * 1024; // 1GB
+
+    private Stopwatch processingStopwatch = new Stopwatch();
+    private string formattedDuration = "";
 
     private readonly string[] AllowedExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp" };
     private readonly string[] ClassificationFolders = { "Good", "Bad", "Duplicate", "Closed Eye" };
@@ -184,7 +213,8 @@
             return;
         }
 
-        // ✅ This now creates the global CancellationTokenSource and sets IsProcessing to true
+        formattedDuration = "";
+        processingStopwatch.Restart();
         AppState.SetIsProcessing(true);
 
         try { await Http.PostAsync("http://localhost:8000/clear-state/", null); }
@@ -210,8 +240,7 @@
             }
             else
             {
-                // ✅ Pass the token from the AppState. It is guaranteed not to be null here.
-                await ProcessFilesSequentially(filePaths, AppState.ProcessingCancellationTokenSource!.Token);
+                await ProcessFilesConcurrently(filePaths, AppState.ProcessingCancellationTokenSource!.Token);
             }
         }
         catch (OperationCanceledException)
@@ -221,7 +250,10 @@
         catch (Exception ex) { errorMessage = $"An error occurred during processing: {ex.Message}"; }
         finally
         {
-            // ✅ This now sets IsProcessing to false and disposes the global CancellationTokenSource
+            processingStopwatch.Stop();
+            var elapsed = processingStopwatch.Elapsed;
+            formattedDuration = $"Total Time: {elapsed:mm\\:ss\\.fff}";
+
             AppState.SetIsProcessing(false);
             isProcessingAny = false;
             showNotification = false;
@@ -229,46 +261,53 @@
         }
     }
 
-    // ✅ Method now accepts a CancellationToken
-    private async Task ProcessFilesSequentially(List<string> filePaths, CancellationToken cancellationToken)
+    private async Task ProcessFilesConcurrently(List<string> filePaths, CancellationToken cancellationToken)
     {
         var landscapeFolder = Path.Combine(outputFolderPath, "Landscape");
         var portraitFolder = Path.Combine(outputFolderPath, "Portrait");
 
+        var parallelOptions = new ParallelOptions
+        {
+            MaxDegreeOfParallelism = Environment.ProcessorCount,
+            CancellationToken = cancellationToken
+        };
+
         foreach (var filePath in filePaths)
         {
-            // ✅ Check for cancellation at the start of each loop
-            cancellationToken.ThrowIfCancellationRequested();
-
-            var fileName = Path.GetFileName(filePath);
             var fileInfo = new FileInfo(filePath);
-            if (fileInfo.Length > MaxFileSize)
-            {
-                processedCount++;
-                continue;
-            }
+            imagePreviews.Add(new ImagePreview { FileName = Path.GetFileName(filePath), FileSize = fileInfo.Length });
+        }
+        await InvokeAsync(StateHasChanged);
 
-            var preview = new ImagePreview { FileName = fileName, FileSize = fileInfo.Length, IsProcessing = true };
-            imagePreviews.Add(preview);
+        await Parallel.ForEachAsync(imagePreviews, parallelOptions, async (preview, token) =>
+        {
+            var filePath = Path.Combine(inputFolderPath, preview.FileName);
+            var fileInfo = new FileInfo(filePath);
+
+            preview.IsProcessing = true;
             await InvokeAsync(StateHasChanged);
 
             try
             {
-                var fileBytes = await File.ReadAllBytesAsync(filePath, cancellationToken);
+                if (fileInfo.Length > MaxFileSize)
+                {
+                    throw new Exception("File size exceeds 1GB limit.");
+                }
+
+                var fileBytes = await File.ReadAllBytesAsync(filePath, token);
                 using var content = new MultipartFormDataContent();
                 using var byteArrayContent = new ByteArrayContent(fileBytes);
-                var extension = Path.GetExtension(fileName).TrimStart('.').ToLower();
+                var extension = Path.GetExtension(preview.FileName).TrimStart('.').ToLower();
                 byteArrayContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue($"image/{extension}");
-                content.Add(byteArrayContent, "file", fileName);
+                content.Add(byteArrayContent, "file", preview.FileName);
 
-                // ✅ Pass the token to the HTTP request
-                var response = await Http.PostAsync("http://localhost:8000/upload-image/", content, cancellationToken);
+                var response = await Http.PostAsync("http://localhost:8000/upload-image/", content, token);
 
                 preview.ClassificationResult = response.IsSuccessStatusCode
-                    ? await response.Content.ReadFromJsonAsync<ClassificationResult>(cancellationToken: cancellationToken)
+                    ? await response.Content.ReadFromJsonAsync<ClassificationResult>(cancellationToken: token)
                     : new ClassificationResult { Label = "Error", Details = JsonDocument.Parse($"{{\"message\":\"Upload failed: {response.ReasonPhrase}\"}}").RootElement };
 
-                preview.ImageDataUrl = $"http://localhost:8000/static/images/{Uri.EscapeDataString(fileName)}";
+                preview.ImageDataUrl = $"http://localhost:8000/static/images/{Uri.EscapeDataString(preview.FileName)}";
 
                 if (preview.ClassificationResult != null && !string.IsNullOrEmpty(preview.ClassificationResult.Label) && ClassificationFolders.Contains(preview.ClassificationResult.Label))
                 {
@@ -276,17 +315,16 @@
                     string orientation = width >= height ? "Landscape" : "Portrait";
                     var destinationFolder = Path.Combine(orientation == "Landscape" ? landscapeFolder : portraitFolder, preview.ClassificationResult.Label);
                     Directory.CreateDirectory(destinationFolder);
-                    var destinationPath = Path.Combine(destinationFolder, fileName);
+                    var destinationPath = Path.Combine(destinationFolder, preview.FileName);
                     if (File.Exists(destinationPath))
                     {
-                        var baseName = Path.GetFileNameWithoutExtension(fileName);
-                        var ext = Path.GetExtension(fileName);
+                        var baseName = Path.GetFileNameWithoutExtension(preview.FileName);
+                        var ext = Path.GetExtension(preview.FileName);
                         destinationPath = Path.Combine(destinationFolder, $"{baseName}_{DateTime.Now.Ticks}{ext}");
                     }
                     File.Move(filePath, destinationPath);
                 }
             }
-            // ✅ Let OperationCanceledException bubble up to be caught by StartProcessing
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 preview.HasError = true;
@@ -295,10 +333,10 @@
             finally
             {
                 preview.IsProcessing = false;
-                processedCount++;
+                Interlocked.Increment(ref processedCount);
                 await InvokeAsync(StateHasChanged);
             }
-        }
+        });
     }
     #endregion
 
