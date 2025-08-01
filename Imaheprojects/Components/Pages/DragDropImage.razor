@@ -53,9 +53,10 @@
                 <p class="folder-info">Output subfolders will be created at:<br />@Path.Combine(outputFolderPath, "Landscape")<br />@Path.Combine(outputFolderPath, "Portrait")</p>
             }
             <button class="process-btn" @onclick="StartProcessing" disabled="@(string.IsNullOrEmpty(inputFolderPath) || string.IsNullOrEmpty(outputFolderPath) || isProcessingAny)">▶ Start Processing</button>
-            <div class="progress-bar">
-                Processed: @processedCount / @totalFiles
-                <progress value="@processedCount" max="@totalFiles"></progress>
+
+            <div class="progress-container">
+                <div class="progress-bar-custom" style="width: @(totalFiles > 0 ? (processedCount * 100 / totalFiles) : 0)%"></div>
+                <span class="progress-label">@processedCount / @totalFiles</span>
             </div>
 
             @if (!string.IsNullOrEmpty(formattedDuration))
@@ -63,6 +64,13 @@
                 <div class="duration-display">
                     <strong>@formattedDuration</strong>
                 </div>
+            }
+
+            @if (!isProcessingAny && processedCount > 0 && processedCount == totalFiles)
+            {
+                <button class="btn btn-success view-results-btn" @onclick="OpenOutputFolder">
+                    📂 View Results
+                </button>
             }
 
         </div>
@@ -150,6 +158,107 @@
         word-wrap: break-word;
         min-height: 1.5em;
     }
+
+    .progress-container {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        height: 25px;
+        background-color: #e0e0e0;
+        border-radius: 8px;
+        margin-top: 15px;
+        box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+    }
+
+    .progress-bar-custom {
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 100%;
+        background-image: linear-gradient(45deg, #007bff, #0056b3);
+        border-radius: 8px;
+        transition: width 0.4s ease-in-out;
+    }
+
+    .progress-label {
+        position: relative;
+        color: #333;
+        font-weight: bold;
+        text-shadow: 0 0 3px white, 0 0 3px white;
+    }
+
+    .view-results-btn {
+        margin-top: 10px;
+        width: 100%;
+    }
+
+    /* --- NEW/FIXED STYLES FOR BADGES --- */
+    .classification-badge {
+        position: absolute;
+        bottom: 5px;
+        right: 5px;
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 0.85em;
+        font-weight: bold;
+        color: white;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+
+    .badge-good {
+        background-color: #28a745;
+    }
+    /* Green */
+    .badge-bad {
+        background-color: #dc3545;
+    }
+    /* Red */
+    .badge-duplicate {
+        background-color: #ffc107; /* Yellow */
+        color: #212529; /* Dark text for contrast */
+    }
+
+    .badge-closed-eye {
+        background-color: #17a2b8;
+    }
+    /* Teal/Info Blue */
+    .badge-default {
+        background-color: #6c757d;
+    }
+    /* Gray */
+
+
+    /* --- NEW STYLES FOR SUMMARY DETAILS --- */
+    .details-summary {
+        padding: 6px 10px;
+        border-radius: 5px;
+        margin-top: 5px;
+        font-weight: bold;
+        text-align: center;
+    }
+
+        .details-summary.good {
+            background-color: #e9f5ec;
+            color: #28a745;
+        }
+
+        .details-summary.bad {
+            background-color: #fbebed;
+            color: #dc3545;
+        }
+
+        .details-summary.duplicate {
+            background-color: #fff8e1;
+            color: #ff9a00;
+        }
+
+        .details-summary.closed-eye {
+            background-color: #e7f6f8;
+            color: #17a2b8;
+        }
+
 </style>
 
 @code {
@@ -350,6 +459,28 @@
             return (image.Width, image.Height);
         }
         catch { return (0, 0); }
+    }
+
+    private void OpenOutputFolder()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(outputFolderPath) || !Directory.Exists(outputFolderPath))
+            {
+                errorMessage = "Output folder does not exist or is not specified.";
+                return;
+            }
+
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = outputFolderPath,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Could not open folder: {ex.Message}";
+        }
     }
 
     private void SelectPreview(int index) => selectedIndex = index;
