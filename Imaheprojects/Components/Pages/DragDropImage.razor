@@ -356,7 +356,7 @@
         {
             processingStopwatch.Stop();
             var elapsed = processingStopwatch.Elapsed;
-            formattedDuration = $"Total Time: {elapsed:mm\\:ss\\.fff}";
+            formattedDuration = $"Total Time Sorted: {elapsed:hh\\:mm\\:ss}";
 
             AppState.SetIsProcessing(false);
             isProcessingAny = false;
