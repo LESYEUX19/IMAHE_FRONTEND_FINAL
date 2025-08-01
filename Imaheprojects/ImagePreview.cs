@@ -1,8 +1,13 @@
-﻿using System.Text.Json;
+﻿
 
-// Define the namespace to match your project
+using System.Text.Json;
+using System.Text.Json.Serialization; // Required for [JsonPropertyName]
+
 namespace Imahe
 {
+    /// <summary>
+    /// This class represents a single image shown in the UI.
+    /// </summary>
     public class ImagePreview
     {
         public string ImageDataUrl { get; set; } = "";
@@ -14,76 +19,69 @@ namespace Imahe
         public string ErrorMessage { get; set; } = "";
     }
 
+    /// <summary>
+    /// This class holds the result from the Python API for one image.
+    /// </summary>
     public class ClassificationResult
     {
         public string Status { get; set; } = "";
         public string Label { get; set; } = "";
-        public JsonElement Details { get; set; }
 
-        public string GetDetailsString()
-        {
-            if (Details.ValueKind == JsonValueKind.String)
-            {
-                return Details.GetString() ?? "";
-            }
-            else if (Details.ValueKind == JsonValueKind.Object)
-            {
-                try
-                {
-                    return JsonSerializer.Serialize(Details, new JsonSerializerOptions { WriteIndented = true });
-                }
-                catch
-                {
-                    return Details.ToString();
-                }
-            }
-            return Details.ToString();
-        }
+        // This now uses the specific ClassificationDetails class, which is much safer.
+        public ClassificationDetails? Details { get; set; }
 
         public string GetDetailsSummary()
         {
-            if (Details.ValueKind == JsonValueKind.Object)
+            if (Details == null) return "Analysis details not available.";
+
+            try
             {
-                try
+                switch (Label?.ToLower())
                 {
-                    switch (Label.ToLower())
-                    {
-                        case "bad":
-                            var badSummary = "";
-                            if (Details.TryGetProperty("reason", out var reason))
-                            {
-                                badSummary = reason.GetString() ?? "Low quality image";
-                            }
-                            if (Details.TryGetProperty("sharpness", out var sharpness) &&
-                                Details.TryGetProperty("exposure", out var exposure))
-                            {
-                                if (!string.IsNullOrEmpty(badSummary))
-                                    badSummary += $" (Sharpness: {sharpness.GetDouble():F1}, Exposure: {exposure.GetDouble():F1})";
-                                else
-                                    badSummary = $"Sharpness: {sharpness.GetDouble():F1}, Exposure: {exposure.GetDouble():F1}";
-                            }
-                            return string.IsNullOrEmpty(badSummary) ? "Low quality image" : badSummary;
-                        case "good":
-                            if (Details.TryGetProperty("sharpness", out var goodSharpness) &&
-                                Details.TryGetProperty("exposure", out var goodExposure))
-                                return $"✅ Good quality (Sharpness: {goodSharpness.GetDouble():F1}, Exposure: {goodExposure.GetDouble():F1})";
-                            return "✅ Good quality image";
-                        case "duplicate":
-                            if (Details.TryGetProperty("message", out var message))
-                                return $"🔄 {message.GetString() ?? "Duplicate detected"}";
-                            return "🔄 Duplicate detected";
-                        case "closed eye":
-                            return "👁️ Closed eye detected";
-                        default:
-                            return "Image analyzed";
-                    }
-                }
-                catch
-                {
-                    return "Image analyzed";
+                    case "bad":
+                        string reason = Details.Reason ?? "Low quality";
+                        return $"⚠️ {reason} (Sharpness: {Details.Sharpness:F1}, Exposure: {Details.Exposure:F1})";
+
+                    case "good":
+                        return $"✅ Good quality (Sharpness: {Details.Sharpness:F1}, Exposure: {Details.Exposure:F1})";
+
+                    case "duplicate":
+                        return $"🔄 {Details.Message ?? "Duplicate detected"}";
+
+                    case "closed eye":
+                        return $"👁️ {Details.Message ?? "Closed eye detected"}";
+
+                    case "error":
+                        return $"❌ {Details.Message ?? "An unknown error occurred."}";
+
+                    default:
+                        return "Image analyzed";
                 }
             }
-            return Details.ToString();
+            catch
+            {
+                return "Could not read analysis details.";
+            }
         }
+    }
+
+    /// <summary>
+    /// THIS IS THE MISSING PIECE.
+    /// This class defines what 'ClassificationDetails' is. The compiler was
+    /// looking for this and could not find it.
+    /// </summary>
+    public class ClassificationDetails
+    {
+        [JsonPropertyName("sharpness")]
+        public double Sharpness { get; set; }
+
+        [JsonPropertyName("exposure")]
+        public double Exposure { get; set; }
+
+        [JsonPropertyName("reason")]
+        public string? Reason { get; set; }
+
+        [JsonPropertyName("message")]
+        public string? Message { get; set; }
     }
 }
