@@ -8,14 +8,14 @@
     <div class="learnmore-faq-row">
         <div class="learnmore-faq-col">
             <div class="learnmore-faq-q"><b>What is the IMAHE system?</b></div>
-            <div class="learnmore-faq-a">IMAHE is an AI-powered photo sorting app that uses Convolutional Neural Networks (CNN) to automatically classify images as Good, Bad, Closed Eyes, or Duplicate based on quality and also their orientations which are the Landscape and Portrait.</div>
+            <div class="learnmore-faq-a">IMAHE is an AI-powered photo sorting app that uses Computer Vision and Machine Learning Agorithms to automatically classify images as Good, Bad, Flagged, or Duplicate based on quality and also their orientations which are the Landscape and Portrait.</div>
             <div class="learnmore-faq-q"><b>How does IMAHE detect low-quality photos?</b></div>
             <div class="learnmore-faq-a">IMAHE checks sharpness, exposure, and noise. Blurry, underexposed, or noisy images are automatically labeled as Bad.</div>
         </div>
         <div class="learnmore-faq-col">
             <div class="learnmore-faq-q"><b>Can IMAHE detect closed eyes in a photo?</b></div>
             <div class="learnmore-faq-a">
-                Yes! The system uses OpenCV's implementation of Haar Cascade-based Object Detection, First, the haarcascade_frontalface_default.xml model is used to locate human faces. Second, If a face is found, the haarcascade_eye.xml model is then used to search for eyes only within the detected facial region.
+                Yes! The system uses OpenCV's implementation of Haar Cascade-based Object Detection,
                 If a face is detected but no eyes are found within it, the image is flagged as "Closed Eye." This method was chosen for its high speed on standard CPUs and its minimal dependency footprint.
             </div>
             <div class="learnmore-faq-q"><b>How are duplicate photos identified?</b></div>

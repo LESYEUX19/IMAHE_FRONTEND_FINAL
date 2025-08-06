@@ -1,3 +1,4 @@
+@page "/legacy-sort" 
 @using Microsoft.AspNetCore.Components
 @using System.Text.Json
 @using System.IO
@@ -48,10 +49,16 @@
                 <button class="btn btn-primary" @onclick="SelectOutputFolder" disabled="@isProcessingAny">Choose Output Folder</button>
                 <code class="folder-path-display">@outputFolderPath</code>
             </div>
-            @if (!string.IsNullOrEmpty(outputFolderPath))
-            {
-                <p class="folder-info">Output subfolders will be created at:<br />@Path.Combine(outputFolderPath, "Landscape")<br />@Path.Combine(outputFolderPath, "Portrait")</p>
-            }
+
+            <!-- This is the new checkbox to toggle the detection mode -->
+            <div class="detection-toggle-container">
+                <input type="checkbox" id="closedEyeToggle" @bind="useClosedEyeDetection" />
+                <label for="closedEyeToggle">Enable Closed Eye Detection</label>
+                <p class="toggle-info">
+                    When enabled, images will be sorted into a "Closed Eye" folder instead of "Flagged".
+                </p>
+            </div>
+
             <button class="process-btn" @onclick="StartProcessing" disabled="@(string.IsNullOrEmpty(inputFolderPath) || string.IsNullOrEmpty(outputFolderPath) || isProcessingAny)">▶ Start Processing</button>
 
             <div class="progress-container">
@@ -72,7 +79,6 @@
                     📂 View Results
                 </button>
             }
-
         </div>
         <div class="alert-container">
             @if (!string.IsNullOrEmpty(errorMessage))
@@ -123,6 +129,39 @@
 </div>
 
 <style>
+    /* Add this new CSS to your existing styles */
+    .detection-toggle-container {
+        margin: 1rem 0;
+        padding: 0.75rem;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        text-align: center;
+        border: 1px solid #e0e0e0;
+    }
+
+        .detection-toggle-container input[type="checkbox"] {
+            margin-right: 0.5rem;
+            transform: scale(1.2);
+            vertical-align: middle;
+        }
+
+        .detection-toggle-container label {
+            font-weight: 600;
+            color: #333;
+            vertical-align: middle;
+        }
+
+    .toggle-info {
+        font-size: 0.85em;
+        color: #666;
+        margin: 0.5rem 0 0 0;
+    }
+
+    .badge-closed-eye {
+        background-color: #fd7e14; /* A distinct orange color */
+    }
+
+    /* Existing styles below */
     .thumbnail-scroll-box {
         height: 300px;
         overflow-y: auto;
@@ -219,7 +258,7 @@
         color: #212529;
     }
 
-    .badge-closed-eye {
+    .badge-flagged {
         background-color: #17a2b8;
     }
 
@@ -228,11 +267,12 @@
     }
 
     .details-summary {
-        padding: 6px 10px;
+        padding: 8px 12px;
         border-radius: 5px;
         margin-top: 5px;
-        font-weight: bold;
+        font-weight: 500;
         text-align: center;
+        line-height: 1.4;
     }
 
         .details-summary.good {
@@ -250,17 +290,19 @@
             color: #ff9a00;
         }
 
-        .details-summary.closed-eye {
+        .details-summary.flagged, .details-summary.closed-eye {
             background-color: #e7f6f8;
             color: #17a2b8;
         }
 </style>
 
 @code {
+    // === Injected Services ===
     [Inject] private IJSRuntime JS { get; set; } = default!;
     [Inject] private HttpClient Http { get; set; } = default!;
     [Inject] private AppState AppState { get; set; } = default!;
 
+    // === Component State Properties ===
     private string inputFolderPath = "";
     private string outputFolderPath = "";
     private List<ImagePreview> imagePreviews = new();
@@ -275,9 +317,17 @@
     private Stopwatch processingStopwatch = new Stopwatch();
     private string formattedDuration = "";
 
-    private readonly string[] AllowedExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp" };
-    private readonly string[] ClassificationFolders = { "Good", "Bad", "Duplicate", "Closed Eye" };
+    // === New Feature Properties ===
+    private bool useClosedEyeDetection = false; // The state for our new checkbox
 
+    // This property dynamically returns the correct folder list based on the checkbox state
+    private string[] CurrentClassificationFolders => useClosedEyeDetection
+        ? new[] { "Good", "Bad", "Duplicate", "Closed Eye" }
+        : new[] { "Good", "Bad", "Duplicate", "Flagged" };
+
+    private readonly string[] AllowedExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp" };
+
+    // === Core Logic Methods ===
     #region Core Logic
     private async Task SelectInputFolder()
     {
@@ -405,9 +455,11 @@
                 byteArrayContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue($"image/{extension}");
                 content.Add(byteArrayContent, "file", preview.FileName);
 
+                // Send the user's choice to the backend API
+                content.Add(new StringContent(useClosedEyeDetection.ToString().ToLower()), "detect_closed_eyes");
+
                 var response = await Http.PostAsync("http://localhost:8000/upload-image/", content, token);
 
-                // *** START OF CORRECTED CODE ***
                 if (response.IsSuccessStatusCode)
                 {
                     var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
@@ -415,19 +467,17 @@
                 }
                 else
                 {
-                    // This is the correct way to handle the error.
-                    // It creates a new C# object, not a JsonElement.
                     preview.ClassificationResult = new ClassificationResult
                     {
                         Label = "Error",
                         Details = new ClassificationDetails { Message = $"Upload failed: {response.ReasonPhrase} ({response.StatusCode})" }
                     };
                 }
-                // *** END OF CORRECTED CODE ***
 
                 preview.ImageDataUrl = $"http://localhost:8000/static/images/{Uri.EscapeDataString(preview.FileName)}";
 
-                if (preview.ClassificationResult != null && !string.IsNullOrEmpty(preview.ClassificationResult.Label) && ClassificationFolders.Contains(preview.ClassificationResult.Label))
+                // Use the new dynamic folder list to validate and move files
+                if (preview.ClassificationResult != null && !string.IsNullOrEmpty(preview.ClassificationResult.Label) && CurrentClassificationFolders.Contains(preview.ClassificationResult.Label))
                 {
                     (int width, int height) = GetImageDimensionsFromBytes(fileBytes);
                     string orientation = width >= height ? "Landscape" : "Portrait";
@@ -458,6 +508,7 @@
     }
     #endregion
 
+    // === Helper Methods ===
     #region Helper Methods
     private (int width, int height) GetImageDimensionsFromBytes(byte[] imageBytes)
     {
@@ -501,7 +552,8 @@
         "good" => "good",
         "bad" => "bad",
         "duplicate" => "duplicate",
-        "closed eye" => "closed-eye",
+        "flagged" => "flagged",
+        "closed eye" => "flagged", // Style "Closed Eye" summary like "Flagged"
         _ => ""
     };
 
@@ -510,7 +562,8 @@
         "good" => "badge-good",
         "bad" => "badge-bad",
         "duplicate" => "badge-duplicate",
-        "closed eye" => "badge-closed-eye",
+        "flagged" => "badge-flagged",
+        "closed eye" => "badge-closed-eye", // Assign the new badge class
         _ => "badge-default"
     };
 

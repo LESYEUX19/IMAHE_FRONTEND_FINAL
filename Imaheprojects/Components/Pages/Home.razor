@@ -4,26 +4,58 @@
 @inject IJSRuntime JS
 
 <div class="main-layout" id="main-layout">
-    <div class="welcome-container">
-        <div class="welcome-left">
-            <h2>Welcome to</h2>
-            <h1 class="imahe-title">
-                <span>I</span>
-                <span>M</span>
-                <span>A</span>
-                <span>H</span>
-                <span>E</span>
-            </h1>
-            <div class="imahe-desc">where every Image finds its place...</div>
-            <div class="welcome-btns">
-                <button class="how-btn" @onclick="NavigateToHowUseImahe">HOW TO USE IMAHE</button>
-                <button class="sort-btn" @onclick="NavigateToSort">SORT NOW!</button>
+
+    <!-- This new wrapper is ONLY for the homepage. It stacks your content vertically. -->
+    <div class="homepage-wrapper">
+
+        <!-- This is your original welcome container, unchanged -->
+        <div class="welcome-container">
+            <div class="welcome-left">
+                <h2><i>W E L C O M E   T O</i></h2>
+                <h1 class="imahe-title">
+                    <span>I</span>
+                    <span>M</span>
+                    <span>A</span>
+                    <span>H</span>
+                    <span>E</span>
+                </h1>
+                <div class="imahe-desc">
+                    <p><i>where every image finds its place</i></p>
+                </div>
+                <div class="welcome-btns">
+                    <button class="how-btn" @onclick="NavigateToHowUseImahe">HOW TO USE IMAHE</button>
+                    <button class="sort-btn" @onclick="NavigateToSort">START NOW!</button>
+                </div>
+            </div>
+            <div class="welcome-right">
+                <img src="/Assets/2nhero.jpg" alt="Hero Placeholder" class="hero-img" />
             </div>
         </div>
-        <div class="welcome-right">
-            <img src="/Assets/2nhero.jpg" alt="Hero Placeholder" class="hero-img" />
+
+        <!-- This is the NEW description box that appears below the welcome box -->
+        <div class="detailed-description-container">
+            <p>
+                Welcome to IMAHE, your smart companion for effortless image organization.
+                Just upload or drop your images into a folder — and let the power of AI do the rest!
+            </p>
+
+            <p>✨ With IMAHE, your images are automatically analyzed and sorted into:</p>
+
+            <ul class="features-list">
+                <li>✅ <strong>Good</strong> – Clear, high-quality images ready to keep</li>
+                <li>❌ <strong>Bad</strong> – Blurry, low-quality, or poorly lit images</li>
+                <li>🚩 <strong>Flagged</strong> – Images with potential issues or needing review</li>
+                <li>🔁 <strong>Duplicated</strong> – Identical or near-duplicate images</li>
+            </ul>
+
+            <p>
+                No more manual sorting. No more clutter.<br>
+                Let IMAHE bring order to your photo chaos — quickly, intelligently, and beautifully.
+            </p>
         </div>
-    </div>
+
+    </div> <!-- End of the new homepage-wrapper -->
+
 </div>
 
 @code {

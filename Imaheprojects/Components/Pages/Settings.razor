@@ -48,6 +48,8 @@
                         <InputNumber id="minExposure" @bind-Value="settings.MinExposure" class="form-control" step="0.1" />
                         <small class="form-text">
                             <strong>Range:</strong> 0.0 - 255.0 | <strong>Recommended:</strong> 50.0 - 100.0<br/>
+                            Sets the lowest acceptable exposure value.
+                            Images with exposure below this threshold are classified as bad (too dark).
                             Lower bound for acceptable exposure values. Images with exposure below this threshold will be classified as "bad".
                         </small>
                     </div>
@@ -60,6 +62,8 @@
                         <InputNumber id="maxExposure" @bind-Value="settings.MaxExposure" class="form-control" step="0.1" />
                         <small class="form-text">
                             <strong>Range:</strong> 0.0 - 255.0 | <strong>Recommended:</strong> 150.0 - 200.0<br/>
+                            Sets the highest acceptable exposure value.
+                            Images with exposure above this threshold are classified as bad (too bright).
                             Upper bound for acceptable exposure values. Images with exposure above this threshold will be classified as "bad".
                         </small>
                     </div>
@@ -72,6 +76,8 @@
                         <InputNumber id="minSharpness" @bind-Value="settings.MinSharpness" class="form-control" step="0.1" />
                         <small class="form-text">
                             <strong>Range:</strong> 0.0 - 1000.0 | <strong>Recommended:</strong> 100.0 - 300.0<br/>
+                            Defines the minimum sharpness level for acceptable image quality.
+                            Images with sharpness below this value are considered blurry or low-quality.
                             Minimum sharpness threshold for image quality. Images with sharpness below this threshold will be classified as "bad".
                         </small>
                     </div>
@@ -79,6 +85,7 @@
                 
                 <div class="settings-preview">
                     <h5>📋 Current Settings Summary</h5>
+                    <p>Displays a quick overview of the active thresholds for exposure and sharpness.</p>
                     <div class="preview-grid">
                         <div class="preview-item">
                             <span class="preview-label">Exposure Range:</span>
@@ -100,15 +107,21 @@
                         }
                         else
                         {
-                            <span>💾 Update Settings</span>
+                            <span>
+                                💾 Update Settings 
+                                <p>Applies the newly entered threshold values.</p>
+                            </span>
+
                         }
                     </button>
                     <button type="button" class="btn btn-secondary" @onclick="LoadSettings" disabled="@isLoading">
                         🔄 Refresh
+                        <p>Reloads the current settings without saving changes.</p>
                     </button>
                     <button type="button" class="btn btn-outline-info" @onclick="ResetToDefaults">
                         ⚙️ Reset to Defaults
-                    </button>
+                        <p>Restores all thresholds to their recommended default values.</p>
+                   </button>
                 </div>
             </EditForm>
         </div>
