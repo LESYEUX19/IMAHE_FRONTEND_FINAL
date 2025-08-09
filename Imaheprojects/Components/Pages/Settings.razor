@@ -1,11 +1,11 @@
-@page "/settings"
+﻿@page "/settings"
 @using System.Text.Json
 @using System.Text.Json.Serialization
 @inject HttpClient Http
 
 <div class="settings-container">
     <h3>Classification Settings</h3>
-    
+
     @if (isLoading)
     {
         <div class="loading-message">
@@ -13,7 +13,7 @@
             <span>Loading settings...</span>
         </div>
     }
-    
+
     @if (!string.IsNullOrEmpty(errorMessage))
     {
         <div class="alert alert-danger">
@@ -21,7 +21,7 @@
             <button @onclick="ClearError" class="close-btn">&times;</button>
         </div>
     }
-    
+
     @if (!string.IsNullOrEmpty(successMessage))
     {
         <div class="alert alert-success">
@@ -29,7 +29,7 @@
             <button @onclick="ClearSuccess" class="close-btn">&times;</button>
         </div>
     }
-    
+
     @if (settings != null)
     {
         <div class="settings-form">
@@ -37,7 +37,7 @@
                 <h4>📊 Image Quality Parameters</h4>
                 <p>Configure the thresholds for image classification. These settings determine what constitutes a "good" vs "bad" image.</p>
             </div>
-            
+
             <EditForm Model="@settings" OnValidSubmit="UpdateSettings">
                 <div class="settings-grid">
                     <div class="form-group">
@@ -47,13 +47,13 @@
                         </label>
                         <InputNumber id="minExposure" @bind-Value="settings.MinExposure" class="form-control" step="0.1" />
                         <small class="form-text">
-                            <strong>Range:</strong> 0.0 - 255.0 | <strong>Recommended:</strong> 50.0 - 100.0<br/>
+                            <strong>Range:</strong> 0.0 - 255.0 | <strong>Recommended:</strong> 50.0 - 100.0<br />
                             Sets the lowest acceptable exposure value.
                             Images with exposure below this threshold are classified as bad (too dark).
                             Lower bound for acceptable exposure values. Images with exposure below this threshold will be classified as "bad".
                         </small>
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="maxExposure">
                             <span class="label-icon">☀️</span>
@@ -61,13 +61,13 @@
                         </label>
                         <InputNumber id="maxExposure" @bind-Value="settings.MaxExposure" class="form-control" step="0.1" />
                         <small class="form-text">
-                            <strong>Range:</strong> 0.0 - 255.0 | <strong>Recommended:</strong> 150.0 - 200.0<br/>
+                            <strong>Range:</strong> 0.0 - 255.0 | <strong>Recommended:</strong> 150.0 - 200.0<br />
                             Sets the highest acceptable exposure value.
                             Images with exposure above this threshold are classified as bad (too bright).
                             Upper bound for acceptable exposure values. Images with exposure above this threshold will be classified as "bad".
                         </small>
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="minSharpness">
                             <span class="label-icon">🔍</span>
@@ -75,14 +75,14 @@
                         </label>
                         <InputNumber id="minSharpness" @bind-Value="settings.MinSharpness" class="form-control" step="0.1" />
                         <small class="form-text">
-                            <strong>Range:</strong> 0.0 - 1000.0 | <strong>Recommended:</strong> 100.0 - 300.0<br/>
+                            <strong>Range:</strong> 0.0 - 1000.0 | <strong>Recommended:</strong> 100.0 - 300.0<br />
                             Defines the minimum sharpness level for acceptable image quality.
                             Images with sharpness below this value are considered blurry or low-quality.
                             Minimum sharpness threshold for image quality. Images with sharpness below this threshold will be classified as "bad".
                         </small>
                     </div>
                 </div>
-                
+
                 <div class="settings-preview">
                     <h5>📋 Current Settings Summary</h5>
                     <p>Displays a quick overview of the active thresholds for exposure and sharpness.</p>
@@ -97,7 +97,7 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="form-actions">
                     <button type="submit" class="btn btn-primary" disabled="@isUpdating">
                         @if (isUpdating)
@@ -108,7 +108,7 @@
                         else
                         {
                             <span>
-                                💾 Update Settings 
+                                💾 Update Settings
                                 <p>Applies the newly entered threshold values.</p>
                             </span>
 
@@ -121,7 +121,7 @@
                     <button type="button" class="btn btn-outline-info" @onclick="ResetToDefaults">
                         ⚙️ Reset to Defaults
                         <p>Restores all thresholds to their recommended default values.</p>
-                   </button>
+                    </button>
                 </div>
             </EditForm>
         </div>
@@ -145,7 +145,7 @@
         isLoading = true;
         errorMessage = "";
         successMessage = "";
-        
+
         try
         {
             settings = await Http.GetFromJsonAsync<SettingsModel>("http://localhost:8000/settings/");
@@ -163,28 +163,28 @@
     private async Task UpdateSettings()
     {
         if (settings == null) return;
-        
+
         // Validate settings before sending
         if (settings.MinExposure >= settings.MaxExposure)
         {
             errorMessage = "Minimum exposure must be less than maximum exposure.";
             return;
         }
-        
+
         if (settings.MinSharpness <= 0)
         {
             errorMessage = "Minimum sharpness must be greater than 0.";
             return;
         }
-        
+
         isUpdating = true;
         errorMessage = "";
         successMessage = "";
-        
+
         try
         {
             var response = await Http.PostAsJsonAsync("http://localhost:8000/settings/", settings);
-            
+
             if (response.IsSuccessStatusCode)
             {
                 successMessage = "Settings updated successfully!";
@@ -194,7 +194,7 @@
             else
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
-                
+
                 // Try to parse the error response for better user experience
                 try
                 {
@@ -248,7 +248,7 @@
     {
         successMessage = "";
     }
-    
+
     private void ResetToDefaults()
     {
         if (settings != null)
@@ -264,11 +264,11 @@
     {
         [JsonPropertyName("min_exposure")]
         public float MinExposure { get; set; }
-        
+
         [JsonPropertyName("max_exposure")]
         public float MaxExposure { get; set; }
-        
+
         [JsonPropertyName("min_sharpness")]
         public float MinSharpness { get; set; }
     }
-} 
+}

@@ -1,10 +1,11 @@
-﻿namespace Imahe; // Ensure this namespace matches your project
+﻿// In AppState.cs
+namespace Imahe; // Ensure this namespace matches your project
 
-public class AppState : IDisposable
+// FIXED: Added 'partial' keyword for MAUI/WinRT compatibility.
+public partial class AppState : IDisposable
 {
     public bool IsProcessing { get; private set; }
 
-    // ✅ NEW: The CancellationTokenSource is now shared globally.
     public CancellationTokenSource? ProcessingCancellationTokenSource { get; private set; }
 
     public event Action? OnChange;
@@ -19,6 +20,7 @@ public class AppState : IDisposable
         else
         {
             // Clean up the old source when processing is done
+            ProcessingCancellationTokenSource?.Cancel();
             ProcessingCancellationTokenSource?.Dispose();
             ProcessingCancellationTokenSource = null;
         }
@@ -27,10 +29,14 @@ public class AppState : IDisposable
         NotifyStateChanged();
     }
 
-    private void NotifyStateChanged() => OnChange?.Invoke();
+    // FIXED: Stray colon was removed from here.
 
     public void Dispose()
     {
         ProcessingCancellationTokenSource?.Dispose();
+        // FIXED: Added this line as requested by the compiler for best practices.
+        GC.SuppressFinalize(this);
     }
+
+    private void NotifyStateChanged() => OnChange?.Invoke();
 }

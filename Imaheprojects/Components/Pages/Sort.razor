@@ -1,8 +1,540 @@
-@page "/sort"
+﻿@page "/sort"
+@using System.Text.Json
+@using System.Text.Json.Serialization
+@using System.IO
+@using CommunityToolkit.Maui.Storage
+@using Imahe
+@using System.Diagnostics
+@using System.Threading
+
+@inject HttpClient Http
+@inject AppState AppState
 
 <div class="sort-page-container">
-    <h2 class="sort-title">Sort & Classify Your Images</h2>
-    <div class="dragdrop-section">
-        <DragDropImage />
+    <div class="image-upload-main-layout">
+
+        @* --- LEFT PANEL: LARGE IMAGE PREVIEW --- *@
+        <div class="image-large-preview-panel">
+            @if (imagePreviews.Count > 0 && selectedIndex < imagePreviews.Count)
+            {
+                <div class="image-large-preview-card">
+                    <img src="@imagePreviews[selectedIndex].ImageDataUrl" alt="@imagePreviews[selectedIndex].FileName" class="image-large-preview-img" />
+                    <div class="image-large-info">
+                        <div class="file-name">@imagePreviews[selectedIndex].FileName</div>
+                        <div class="file-size">@FormatFileSize(imagePreviews[selectedIndex].FileSize)</div>
+                        @if (imagePreviews[selectedIndex].ClassificationResult != null)
+                        {
+                            <div class="classification-details">
+                                <div class="details-summary @GetBadgeClass(imagePreviews[selectedIndex].ClassificationResult.Label)">
+                                    @imagePreviews[selectedIndex].ClassificationResult.GetDetailsSummary()
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="image-large-preview-placeholder">
+                    <span class="placeholder-icon">🖼️</span>
+                    <div class="placeholder-text">No image selected</div>
+                </div>
+            }
+        </div>
+
+        @* --- RIGHT PANEL: CONTROLS AND THUMBNAILS --- *@
+        <div class="image-upload-side-panel">
+            <div class="controls-box">
+                <h3 class="controls-title">Process Folder Images</h3>
+
+                <div class="folder-selection">
+                    <button class="btn btn-primary w-100" @onclick="SelectInputFolder" disabled="@isProcessingAny">Choose Input Folder</button>
+                    <code class="folder-path-display mt-2">@inputFolderPath</code>
+                </div>
+
+                <div class="folder-selection">
+                    <button class="btn btn-primary w-100" @onclick="SelectOutputFolder" disabled="@isProcessingAny">Choose Output Folder</button>
+                    <code class="folder-path-display mt-2">@outputFolderPath</code>
+                </div>
+
+                <button class="process-btn" @onclick="StartProcessing" disabled="@(string.IsNullOrEmpty(inputFolderPath) || inputFolderPath.Contains("not selected") || string.IsNullOrEmpty(outputFolderPath) || outputFolderPath.Contains("not selected") || isProcessingAny)">
+                    @if (isProcessingAny)
+                    {
+                        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                        <span class="ms-2">Processing...</span>
+                    }
+                    else
+                    {
+                        <span>▶ Start Processing</span>
+                    }
+                </button>
+
+                <div class="progress-container">
+                    <div class="progress-bar-custom" style="width: @(totalFiles > 0 ? (processedCount * 100 / totalFiles) : 0)%"></div>
+                    <span class="progress-label">@processedCount / @totalFiles</span>
+                </div>
+
+                @if (!string.IsNullOrEmpty(formattedDuration))
+                {
+                    <div class="duration-display"><strong>Total Time: @formattedDuration</strong></div>
+                }
+
+                @if (!isProcessingAny && processedCount > 0 && processedCount == totalFiles)
+                {
+                    <button class="btn btn-success view-results-btn w-100" @onclick="OpenOutputFolder">📂 View Results</button>
+                }
+            </div>
+
+            <div class="alert-container">
+                @if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    <div class="alert alert-danger" @onclick="ClearError" style="cursor: pointer;">@errorMessage</div>
+                }
+            </div>
+
+            @if (imagePreviews.Count > 0)
+            {
+                <div class="thumbnail-scroll-box">
+                    <Virtualize Items="imagePreviews" Context="preview" OverscanCount="10">
+                        <div class="image-thumbnail-card @(selectedIndex == imagePreviews.IndexOf(preview) ? "selected" : "")" @onclick="() => SelectPreview(imagePreviews.IndexOf(preview))">
+                            <img src="@preview.ImageDataUrl" alt="@preview.FileName" class="image-thumbnail-img" />
+                            <div class="thumbnail-info">
+                                <span class="thumbnail-filename">@preview.FileName</span>
+                                @if (preview.IsProcessing)
+                                {
+                                    <div class="classification-badge badge-default">Processing...</div>
+                                }
+                                else if (preview.ClassificationResult != null)
+                                {
+                                    <div class="classification-badge @GetBadgeClass(preview.ClassificationResult.Label)">
+                                        @preview.ClassificationResult.Label
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </Virtualize>
+                </div>
+            }
+        </div>
     </div>
-</div> 
+</div>
+
+<style>
+    .sort-page-container {
+        padding: 1.5rem;
+    }
+
+    .image-upload-main-layout {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 2rem;
+    }
+
+    .image-large-preview-panel {
+        flex: 3;
+        min-width: 350px;
+    }
+
+    .image-upload-side-panel {
+        flex: 2;
+        min-width: 320px;
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    .controls-box {
+        display: flex;
+        flex-direction: column;
+        gap: 1.25rem;
+        padding: 1.5rem;
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+    }
+
+    .controls-title {
+        margin-bottom: 0;
+    }
+
+    .folder-path-display {
+        display: block;
+        padding: 0.5rem 0.75rem;
+        background-color: #e9ecef;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        color: #495057;
+        word-break: break-all;
+    }
+
+    .progress-container {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        height: 28px;
+        background-color: #e9ecef;
+        border-radius: 8px;
+    }
+
+    .progress-bar-custom {
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 100%;
+        background-image: linear-gradient(45deg, #20c997, #17a2b8);
+        border-radius: 8px;
+        transition: width 0.3s ease-in-out;
+    }
+
+    .progress-label {
+        position: relative;
+        color: #343a40;
+        font-weight: bold;
+        text-shadow: 0 0 2px white;
+    }
+
+    .duration-display {
+        text-align: center;
+        font-size: 0.9rem;
+        color: #6c757d;
+    }
+
+    .thumbnail-scroll-box {
+        height: 400px;
+        overflow-y: auto;
+        border: 1px solid #dee2e6;
+        padding: 10px;
+        background-color: #f8f9fa;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        flex-grow: 1;
+        border-radius: 8px;
+    }
+
+    .image-thumbnail-card {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 12px;
+        border-radius: 8px;
+        border: 1px solid #ced4da;
+        background-color: #ffffff;
+        transition: all 0.2s ease-in-out;
+        cursor: pointer;
+    }
+
+        .image-thumbnail-card.selected {
+            border-color: #0d6efd;
+            box-shadow: 0 0 8px rgba(13, 110, 253, 0.4);
+            transform: scale(1.02);
+        }
+
+    .image-thumbnail-img {
+        width: 80px;
+        height: 80px;
+        object-fit: cover;
+        border-radius: 6px;
+        flex-shrink: 0;
+        background-color: #e9ecef;
+    }
+
+    .thumbnail-info {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 8px;
+        overflow: hidden;
+        flex-grow: 1;
+    }
+
+    .thumbnail-filename {
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: #212529;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .classification-badge {
+        padding: 4px 12px;
+        border-radius: 15px;
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: white;
+        align-self: flex-start;
+    }
+
+    .badge-good {
+        background-color: #198754;
+    }
+
+    .badge-bad {
+        background-color: #ffc107;
+        color: #000;
+    }
+
+    .badge-blurred {
+        background-color: #dc3545;
+    }
+
+    .badge-closed-eye {
+        background-color: #0d6efd;
+    }
+
+    .badge-duplicate {
+        background-color: #6c757d;
+    }
+
+    .badge-default {
+        background-color: #6c757d;
+    }
+
+    .details-summary {
+        padding: 0.75rem 1rem;
+        border-radius: 6px;
+        margin-top: 0.5rem;
+        font-weight: 500;
+        text-align: center;
+        border: 1px solid transparent;
+    }
+
+        .details-summary.badge-good {
+            color: #0f5132;
+            background-color: #d1e7dd;
+            border-color: #badbcc;
+        }
+
+        .details-summary.badge-bad {
+            color: #664d03;
+            background-color: #fff3cd;
+            border-color: #ffecb5;
+        }
+
+        .details-summary.badge-blurred {
+            color: #58151c;
+            background-color: #f8d7da;
+            border-color: #f1aeb5;
+        }
+
+        .details-summary.badge-closed-eye {
+            color: #052c65;
+            background-color: #cce5ff;
+            border-color: #b6d4fe;
+        }
+
+        .details-summary.badge-duplicate, .details-summary.badge-default {
+            color: #212529;
+            background-color: #e2e3e5;
+            border-color: #d3d6d8;
+        }
+</style>
+
+@code {
+    private string inputFolderPath = "Input folder not selected";
+    private string outputFolderPath = "Output folder not selected";
+    private List<ImagePreview> imagePreviews = new();
+    private string errorMessage = "";
+    private bool isProcessingAny = false;
+    private int processedCount = 0;
+    private int totalFiles = 0;
+    private Stopwatch processingStopwatch = new Stopwatch();
+    private string formattedDuration = "";
+    private int selectedIndex = 0;
+
+    private readonly string[] ClassificationFolders = { "Good", "Bad", "Blurred", "Closed Eye", "Duplicate" };
+    private readonly string[] AllowedExtensions = { ".jpg", ".jpeg", ".png", ".bmp", ".webp" };
+
+    private async Task SelectInputFolder()
+    {
+        try
+        {
+            var result = await FolderPicker.Default.PickAsync(CancellationToken.None);
+            if (result.IsSuccessful && result.Folder != null) inputFolderPath = result.Folder.Path;
+        }
+        catch (Exception ex) { errorMessage = $"Folder selection error: {ex.Message}"; }
+    }
+
+    private async Task SelectOutputFolder()
+    {
+        try
+        {
+            var result = await FolderPicker.Default.PickAsync(CancellationToken.None);
+            if (result.IsSuccessful && result.Folder != null) outputFolderPath = result.Folder.Path;
+        }
+        catch (Exception ex) { errorMessage = $"Folder selection error: {ex.Message}"; }
+    }
+
+    private async Task StartProcessing()
+    {
+        if (string.IsNullOrWhiteSpace(inputFolderPath) || inputFolderPath.Contains("not selected") ||
+            string.IsNullOrWhiteSpace(outputFolderPath) || outputFolderPath.Contains("not selected"))
+        {
+            errorMessage = "Please select both input and output folders.";
+            return;
+        }
+
+        isProcessingAny = true;
+        errorMessage = "";
+        processedCount = 0;
+        selectedIndex = 0;
+        imagePreviews.Clear();
+        processingStopwatch.Restart();
+        AppState.SetIsProcessing(true);
+
+        if (AppState.ProcessingCancellationTokenSource is null) { AppState.SetIsProcessing(false); return; }
+
+        try { await Http.PostAsync("http://localhost:8000/clear-state/", null, AppState.ProcessingCancellationTokenSource.Token); }
+        catch { /* Ignore */ }
+
+        var filePaths = Directory.GetFiles(inputFolderPath).Where(f => AllowedExtensions.Contains(Path.GetExtension(f).ToLowerInvariant())).ToList();
+        totalFiles = filePaths.Count;
+
+        if (totalFiles > 0) { await ProcessFilesConcurrently(filePaths, AppState.ProcessingCancellationTokenSource.Token); }
+        else { errorMessage = "No valid images found."; }
+
+        processingStopwatch.Stop();
+        formattedDuration = $"{processingStopwatch.Elapsed:hh\\:mm\\:ss}";
+        isProcessingAny = false;
+        AppState.SetIsProcessing(false);
+    }
+
+    private async Task ProcessFilesConcurrently(List<string> filePaths, CancellationToken cancellationToken)
+    {
+        foreach (var filePath in filePaths) { imagePreviews.Add(new ImagePreview { FileName = Path.GetFileName(filePath) }); }
+        await InvokeAsync(StateHasChanged);
+
+        var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount, CancellationToken = cancellationToken };
+        await Parallel.ForEachAsync(imagePreviews, parallelOptions, async (preview, token) =>
+        {
+            var filePath = Path.Combine(inputFolderPath, preview.FileName);
+            preview.IsProcessing = true;
+            await InvokeAsync(StateHasChanged);
+
+            try
+            {
+                var fileBytes = await File.ReadAllBytesAsync(filePath, token);
+                preview.FileSize = fileBytes.Length;
+                using var content = new MultipartFormDataContent();
+                content.Add(new ByteArrayContent(fileBytes), "file", preview.FileName);
+
+                var response = await Http.PostAsync("http://localhost:8000/upload-image/", content, token);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                    preview.ClassificationResult = await response.Content.ReadFromJsonAsync<ClassificationResult>(options, token);
+                }
+                else
+                {
+                    preview.ClassificationResult = new ClassificationResult { Label = "Error", Details = new ClassificationDetails { Message = await response.Content.ReadAsStringAsync() } };
+                }
+
+                preview.ImageDataUrl = $"http://localhost:8000/static/images/{Uri.EscapeDataString(preview.FileName)}";
+
+                if (preview.ClassificationResult != null && !string.IsNullOrEmpty(preview.ClassificationResult.Label) && ClassificationFolders.Contains(preview.ClassificationResult.Label))
+                {
+                    (int width, int height) = GetImageDimensionsFromBytes(fileBytes);
+                    string orientationFolder = width >= height ? "Landscape" : "Portrait";
+                    var destinationFolder = Path.Combine(outputFolderPath, orientationFolder, preview.ClassificationResult.Label);
+                    Directory.CreateDirectory(destinationFolder);
+                    var destinationPath = Path.Combine(destinationFolder, preview.FileName);
+                    if (File.Exists(destinationPath))
+                    {
+                        destinationPath = Path.Combine(destinationFolder, $"{Path.GetFileNameWithoutExtension(preview.FileName)}_{DateTime.Now.Ticks}{Path.GetExtension(preview.FileName)}");
+                    }
+                    File.Move(filePath, destinationPath);
+                }
+            }
+            catch (OperationCanceledException) { /* Expected */ }
+            catch (Exception ex)
+            {
+                preview.HasError = true;
+                preview.ErrorMessage = ex.Message;
+            }
+            finally
+            {
+                preview.IsProcessing = false;
+                Interlocked.Increment(ref processedCount);
+                await InvokeAsync(StateHasChanged);
+            }
+        });
+    }
+
+    private (int, int) GetImageDimensionsFromBytes(byte[] imageBytes)
+    {
+        try
+        {
+            using var ms = new MemoryStream(imageBytes);
+            using var image = System.Drawing.Image.FromStream(ms);
+            return (image.Width, image.Height);
+        }
+        catch { return (0, 0); }
+    }
+
+    private void OpenOutputFolder()
+    {
+        try
+        {
+            if (!string.IsNullOrEmpty(outputFolderPath) && Directory.Exists(outputFolderPath))
+            {
+                Process.Start(new ProcessStartInfo { FileName = outputFolderPath, UseShellExecute = true });
+            }
+        }
+        catch (Exception ex) { errorMessage = $"Could not open folder: {ex.Message}"; }
+    }
+
+    private void SelectPreview(int index) => selectedIndex = index;
+    private void ClearError() => errorMessage = "";
+    private string GetBadgeClass(string? label) => string.IsNullOrEmpty(label) ? "default" : $"badge-{label.ToLower().Replace(" ", "-")}";
+    private string FormatFileSize(long bytes)
+    {
+        if (bytes <= 0) return "0 B";
+        string[] orders = { "B", "KB", "MB", "GB", "TB" };
+        var i = (int)Math.Floor(Math.Log(bytes, 1024));
+        return $"{bytes / Math.Pow(1024, i):F2} {orders[i]}";
+    }
+
+    public class ImagePreview
+    {
+        public string FileName { get; set; } = "";
+        public string ImageDataUrl { get; set; } = "";
+        public long FileSize { get; set; }
+        public bool IsProcessing { get; set; }
+        public ClassificationResult? ClassificationResult { get; set; }
+        public bool HasError { get; set; }
+        public string ErrorMessage { get; set; } = "";
+    }
+
+    public class ClassificationResult
+    {
+        public string Label { get; set; } = "";
+        public ClassificationDetails? Details { get; set; }
+
+        public string GetDetailsSummary()
+        {
+            if (Details == null) return "No details available";
+            return Label switch
+            {
+                "Good" => $"Quality is good (Sharpness: {Details.Sharpness:F1}, Exposure: {Details.Exposure:F1})",
+                "Bad" => $"Poor exposure (Value: {Details.Exposure:F1})",
+                "Blurred" => $"Image is blurry (Sharpness: {Details.Sharpness:F1})",
+                _ => Details.Message ?? "No additional details."
+            };
+        }
+    }
+
+    public class ClassificationDetails
+    {
+        [JsonPropertyName("message")]
+        public string? Message { get; set; }
+        [JsonPropertyName("sharpness")]
+        public float? Sharpness { get; set; }
+        [JsonPropertyName("exposure")]
+        public float? Exposure { get; set; }
+    }
+}

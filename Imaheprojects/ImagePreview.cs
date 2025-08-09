@@ -1,11 +1,9 @@
-﻿using Microsoft.AspNetCore.Components.Forms;
-using System.Collections.Generic;
-using System.Linq;
+﻿using System.Collections.Generic;
 using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.Components.Forms;
 
 namespace Imahe // Make sure this namespace matches your project's namespace
 {
-    // No changes needed to ImagePreview, FaceDetail, or ClassificationDetails classes
     public class ImagePreview
     {
         public string ImageDataUrl { get; set; } = string.Empty;
@@ -20,70 +18,43 @@ namespace Imahe // Make sure this namespace matches your project's namespace
 
     public class FaceDetail
     {
+        [JsonPropertyName("reason")]
         public string Reason { get; set; } = string.Empty;
+        [JsonPropertyName("count")]
         public int Count { get; set; } = 0;
     }
 
     public class ClassificationDetails
     {
+        [JsonPropertyName("message")]
         public string? Message { get; set; }
+        [JsonPropertyName("sharpness")]
         public float? Sharpness { get; set; }
+        [JsonPropertyName("exposure")]
         public float? Exposure { get; set; }
         [JsonPropertyName("face_details")]
         public List<FaceDetail>? FaceDetails { get; set; }
     }
 
-    // --- START OF THE FIX ---
-    // The only changes are inside the GetDetailsSummary() method below
+    // FIXED: This class is now simpler to match the new backend logic.
     public class ClassificationResult
     {
+        [JsonPropertyName("status")]
         public string Status { get; set; } = string.Empty;
+
+        [JsonPropertyName("label")]
         public string Label { get; set; } = string.Empty;
+
+        [JsonPropertyName("details")]
         public ClassificationDetails Details { get; set; } = new();
 
         public string GetDetailsSummary()
         {
-            if (Details == null)
+            if (Details != null && !string.IsNullOrEmpty(Details.Message))
             {
-                return "No details available.";
+                return Details.Message;
             }
-
-            switch (Label?.ToLower())
-            {
-                case "good":
-                    return $"Image quality is good. (Sharpness: {Details.Sharpness:F2}, Exposure: {Details.Exposure:F2})";
-
-                case "bad":
-                    return $"Image has poor quality. (Sharpness: {Details.Sharpness:F2}, Exposure: {Details.Exposure:F2})";
-
-                // This is the corrected logic.
-                // We now handle "flagged" and "closed eye" as two separate cases.
-                case "flagged":
-                    // For "Flagged", we ALWAYS show the generic message, regardless of the underlying reason.
-                    return "Image was flagged for manual review.";
-
-                case "closed eye":
-                    // For "Closed Eye", we show the specific details.
-                    if (Details.FaceDetails != null && Details.FaceDetails.Count > 0)
-                    {
-                        var faceDetail = Details.FaceDetails.First();
-                        var reason = faceDetail.Reason?.Replace("_", " ") ?? "unknown issue";
-                        var plural = faceDetail.Count > 1 ? "s" : "";
-                        return $"Detected {faceDetail.Count} face{plural} with {reason}.";
-                    }
-                    // This is a fallback in case the details are missing for some reason.
-                    return "Image has a closed eye issue.";
-
-                case "duplicate":
-                    return Details.Message ?? "Duplicate image detected.";
-
-                case "error":
-                    return Details.Message ?? "An unknown error occurred.";
-
-                default:
-                    return Details.Message ?? "No classification summary available.";
-            }
+            return $"Classification: {Label}";
         }
     }
-    // --- END OF THE FIX ---
 }
