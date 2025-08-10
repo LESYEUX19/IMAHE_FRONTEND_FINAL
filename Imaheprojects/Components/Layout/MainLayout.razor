@@ -23,13 +23,16 @@
         <!-- The click interception logic for the nav links -->
         <div>
             <a class="nav-btn" @onclick='() => HandleNavigation("/")' href="javascript:void(0);">IMAHE</a>
+
+            <!-- === NEW LINK ADDED HERE === -->
+            <a class="nav-btn" @onclick='() => HandleNavigation("/history")' href="javascript:void(0);">HISTORY</a>
+
             <a class="nav-btn" @onclick='() => HandleNavigation("/settings")' href="javascript:void(0);">SETTINGS</a>
             <a class="nav-btn" @onclick='() => HandleNavigation("/learn-more")' href="javascript:void(0);">LEARN MORE</a>
             <a class="nav-btn" @onclick='() => HandleNavigation("/about")' href="javascript:void(0);">ABOUT US</a>
         </div>
     </nav>
     <main class="premium-main">
-        <!-- ✅ The @Body that was causing the error -->
         @Body
     </main>
     <footer class="premium-footer">
@@ -131,5 +134,3 @@
         AppState.OnChange -= OnAppStateChanged;
     }
 }
-```
-

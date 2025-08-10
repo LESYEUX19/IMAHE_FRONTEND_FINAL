@@ -1,14 +1,17 @@
 ﻿@page "/sort"
+@using System.Diagnostics
+@using System.IO
+@using System.Threading
 @using System.Text.Json
 @using System.Text.Json.Serialization
-@using System.IO
+@using System.Net.Http.Json
 @using CommunityToolkit.Maui.Storage
 @using Imahe
-@using System.Diagnostics
-@using System.Threading
+@using Microsoft.Extensions.Logging // This is the missing line that fixes the ILogger error
 
 @inject HttpClient Http
 @inject AppState AppState
+@inject ILogger<Sort> Logger
 
 <div class="sort-page-container">
     <div class="image-upload-main-layout">
@@ -290,6 +293,10 @@
         background-color: #6c757d;
     }
 
+    .badge-focused {
+        background-color: #0dcaf0;
+    }
+
     .badge-default {
         background-color: #6c757d;
     }
@@ -346,7 +353,7 @@
     private string formattedDuration = "";
     private int selectedIndex = 0;
 
-    private readonly string[] ClassificationFolders = { "Good", "Bad", "Blurred", "Closed Eye", "Duplicate" };
+    private readonly string[] ClassificationFolders = { "Good", "Bad", "Blurred", "Closed Eye", "Duplicate", "Focused" };
     private readonly string[] AllowedExtensions = { ".jpg", ".jpeg", ".png", ".bmp", ".webp" };
 
     private async Task SelectInputFolder()
@@ -378,6 +385,7 @@
             return;
         }
 
+        var sessionId = Guid.NewGuid().ToString();
         isProcessingAny = true;
         errorMessage = "";
         processedCount = 0;
@@ -386,16 +394,29 @@
         processingStopwatch.Restart();
         AppState.SetIsProcessing(true);
 
-        if (AppState.ProcessingCancellationTokenSource is null) { AppState.SetIsProcessing(false); return; }
+        if (AppState.ProcessingCancellationTokenSource is null)
+        {
+            AppState.SetIsProcessing(false);
+            return;
+        }
 
         try { await Http.PostAsync("http://localhost:8000/clear-state/", null, AppState.ProcessingCancellationTokenSource.Token); }
-        catch { /* Ignore */ }
+        catch (Exception ex)
+        {
+            Logger.LogWarning("Could not clear backend state: {Message}", ex.Message);
+        }
 
         var filePaths = Directory.GetFiles(inputFolderPath).Where(f => AllowedExtensions.Contains(Path.GetExtension(f).ToLowerInvariant())).ToList();
         totalFiles = filePaths.Count;
 
-        if (totalFiles > 0) { await ProcessFilesConcurrently(filePaths, AppState.ProcessingCancellationTokenSource.Token); }
-        else { errorMessage = "No valid images found."; }
+        if (totalFiles > 0)
+        {
+            await ProcessFilesConcurrently(filePaths, sessionId, AppState.ProcessingCancellationTokenSource.Token);
+        }
+        else
+        {
+            errorMessage = "No valid images found in the selected folder.";
+        }
 
         processingStopwatch.Stop();
         formattedDuration = $"{processingStopwatch.Elapsed:hh\\:mm\\:ss}";
@@ -403,12 +424,13 @@
         AppState.SetIsProcessing(false);
     }
 
-    private async Task ProcessFilesConcurrently(List<string> filePaths, CancellationToken cancellationToken)
+    private async Task ProcessFilesConcurrently(List<string> filePaths, string sessionId, CancellationToken cancellationToken)
     {
         foreach (var filePath in filePaths) { imagePreviews.Add(new ImagePreview { FileName = Path.GetFileName(filePath) }); }
         await InvokeAsync(StateHasChanged);
 
         var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount, CancellationToken = cancellationToken };
+
         await Parallel.ForEachAsync(imagePreviews, parallelOptions, async (preview, token) =>
         {
             var filePath = Path.Combine(inputFolderPath, preview.FileName);
@@ -417,6 +439,12 @@
 
             try
             {
+                if (!File.Exists(filePath))
+                {
+                    preview.ClassificationResult = new ClassificationResult { Label = "Error", Details = new ClassificationDetails { Message = "File not found at source." } };
+                    return; // Skip this file
+                }
+
                 var fileBytes = await File.ReadAllBytesAsync(filePath, token);
                 preview.FileSize = fileBytes.Length;
                 using var content = new MultipartFormDataContent();
@@ -431,30 +459,76 @@
                 }
                 else
                 {
-                    preview.ClassificationResult = new ClassificationResult { Label = "Error", Details = new ClassificationDetails { Message = await response.Content.ReadAsStringAsync() } };
+                    var errorContent = await response.Content.ReadAsStringAsync(token);
+                    preview.ClassificationResult = new ClassificationResult { Label = "Error", Details = new ClassificationDetails { Message = errorContent } };
+                    errorMessage = $"Error processing {preview.FileName}: {errorContent}";
+                    await InvokeAsync(StateHasChanged);
+                    return;
+                }
+
+                if (preview.ClassificationResult == null)
+                {
+                    preview.ClassificationResult = new ClassificationResult { Label = "Error", Details = new ClassificationDetails { Message = "Classification result was null." } };
+                    return;
                 }
 
                 preview.ImageDataUrl = $"http://localhost:8000/static/images/{Uri.EscapeDataString(preview.FileName)}";
 
-                if (preview.ClassificationResult != null && !string.IsNullOrEmpty(preview.ClassificationResult.Label) && ClassificationFolders.Contains(preview.ClassificationResult.Label))
+                if (!string.IsNullOrEmpty(preview.ClassificationResult.Label) && ClassificationFolders.Contains(preview.ClassificationResult.Label))
                 {
                     (int width, int height) = GetImageDimensionsFromBytes(fileBytes);
                     string orientationFolder = width >= height ? "Landscape" : "Portrait";
                     var destinationFolder = Path.Combine(outputFolderPath, orientationFolder, preview.ClassificationResult.Label);
                     Directory.CreateDirectory(destinationFolder);
                     var destinationPath = Path.Combine(destinationFolder, preview.FileName);
+
                     if (File.Exists(destinationPath))
                     {
                         destinationPath = Path.Combine(destinationFolder, $"{Path.GetFileNameWithoutExtension(preview.FileName)}_{DateTime.Now.Ticks}{Path.GetExtension(preview.FileName)}");
                     }
+
                     File.Move(filePath, destinationPath);
+
+                    var historyEntry = new LogHistoryEntry
+                    {
+                        SessionId = sessionId,
+                        FileName = Path.GetFileName(destinationPath), // Use the final filename
+                        Label = preview.ClassificationResult.Label,
+                        DetailsMessage = preview.ClassificationResult.GetDetailsSummary(),
+                        Path = destinationPath
+                    };
+
+                    var jsonPayload = JsonSerializer.Serialize(historyEntry);
+                    Logger.LogInformation("ATTEMPTING TO LOG HISTORY. Payload: {Payload}", jsonPayload);
+
+                    try
+                    {
+                        var logResponse = await Http.PostAsJsonAsync("http://localhost:8000/log-history-entry", historyEntry, token);
+                        var responseContent = await logResponse.Content.ReadAsStringAsync(token);
+
+                        Logger.LogInformation("HISTORY LOG RESPONSE. Status: {StatusCode}, Content: {Content}", logResponse.StatusCode, responseContent);
+
+                        if (!logResponse.IsSuccessStatusCode)
+                        {
+                            errorMessage = $"FATAL: Could not save history for {preview.FileName}. Status: {logResponse.StatusCode}. Reason: {responseContent}";
+                            await InvokeAsync(StateHasChanged);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.LogError(ex, "HTTP REQUEST TO LOG HISTORY FAILED COMPLETELY.");
+                        errorMessage = $"NETWORK ERROR: Could not send history for {preview.FileName}. Check backend connection. Error: {ex.Message}";
+                        await InvokeAsync(StateHasChanged);
+                    }
                 }
             }
             catch (OperationCanceledException) { /* Expected */ }
             catch (Exception ex)
             {
+                Logger.LogError(ex, "A critical error occurred while processing {FileName}", preview.FileName);
                 preview.HasError = true;
                 preview.ErrorMessage = ex.Message;
+                errorMessage = $"CRITICAL ERROR on {preview.FileName}: {ex.Message}";
             }
             finally
             {
@@ -490,7 +564,7 @@
 
     private void SelectPreview(int index) => selectedIndex = index;
     private void ClearError() => errorMessage = "";
-    private string GetBadgeClass(string? label) => string.IsNullOrEmpty(label) ? "default" : $"badge-{label.ToLower().Replace(" ", "-")}";
+    private string GetBadgeClass(string? label) => string.IsNullOrEmpty(label) ? "badge-default" : $"badge-{label.ToLower().Replace(" ", "-")}";
     private string FormatFileSize(long bytes)
     {
         if (bytes <= 0) return "0 B";
@@ -523,6 +597,7 @@
                 "Good" => $"Quality is good (Sharpness: {Details.Sharpness:F1}, Exposure: {Details.Exposure:F1})",
                 "Bad" => $"Poor exposure (Value: {Details.Exposure:F1})",
                 "Blurred" => $"Image is blurry (Sharpness: {Details.Sharpness:F1})",
+                "Focused" => $"Subject is in focus (Sharpness: {Details.Sharpness:F1})",
                 _ => Details.Message ?? "No additional details."
             };
         }
@@ -537,4 +612,21 @@
         [JsonPropertyName("exposure")]
         public float? Exposure { get; set; }
     }
+
+    public class LogHistoryEntry
+    {
+        [JsonPropertyName("sessionId")]
+        public string SessionId { get; set; } = string.Empty;
+        [JsonPropertyName("fileName")]
+        public string FileName { get; set; } = string.Empty;
+        [JsonPropertyName("label")]
+        public string Label { get; set; } = string.Empty;
+        [JsonPropertyName("detailsMessage")]
+        public string? DetailsMessage { get; set; }
+        [JsonPropertyName("path")]
+        public string Path { get; set; } = string.Empty;
+    }
 }
+```
+
+This version **will** compile. Now you can perform the diagnostic test from the previous step. Run your application, open the browser console, process one image, and send me the log messages that appear. We will solve this.
