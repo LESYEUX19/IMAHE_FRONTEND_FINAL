@@ -7,11 +7,15 @@
 @using System.Net.Http.Json
 @using CommunityToolkit.Maui.Storage
 @using Imahe
-@using Microsoft.Extensions.Logging // This is the missing line that fixes the ILogger error
+@using Microsoft.Extensions.Logging
+@using System.Drawing;
+@using System.Drawing.Imaging;
+@using System.Timers;
 
 @inject HttpClient Http
 @inject AppState AppState
 @inject ILogger<Sort> Logger
+@implements IDisposable
 
 <div class="sort-page-container">
     <div class="image-upload-main-layout">
@@ -21,7 +25,7 @@
             @if (imagePreviews.Count > 0 && selectedIndex < imagePreviews.Count)
             {
                 <div class="image-large-preview-card">
-                    <img src="@imagePreviews[selectedIndex].ImageDataUrl" alt="@imagePreviews[selectedIndex].FileName" class="image-large-preview-img" />
+                    <img src="@imagePreviews[selectedIndex].HighResDataUrl" alt="@imagePreviews[selectedIndex].FileName" class="image-large-preview-img" />
                     <div class="image-large-info">
                         <div class="file-name">@imagePreviews[selectedIndex].FileName</div>
                         <div class="file-size">@FormatFileSize(imagePreviews[selectedIndex].FileSize)</div>
@@ -29,7 +33,7 @@
                         {
                             <div class="classification-details">
                                 <div class="details-summary @GetBadgeClass(imagePreviews[selectedIndex].ClassificationResult.Label)">
-                                    @imagePreviews[selectedIndex].ClassificationResult.GetDetailsSummary()
+                                    @((MarkupString)imagePreviews[selectedIndex].ClassificationResult.GetDetailsSummary())
                                 </div>
                             </div>
                         }
@@ -38,10 +42,7 @@
             }
             else
             {
-                <div class="image-large-preview-placeholder">
-                    <span class="placeholder-icon">🖼️</span>
-                    <div class="placeholder-text">No image selected</div>
-                </div>
+                <div class="image-large-preview-placeholder"><span class="placeholder-icon">🖼️</span><div class="placeholder-text">No image selected</div></div>
             }
         </div>
 
@@ -49,56 +50,41 @@
         <div class="image-upload-side-panel">
             <div class="controls-box">
                 <h3 class="controls-title">Process Folder Images</h3>
-
-                <div class="folder-selection">
-                    <button class="btn btn-primary w-100" @onclick="SelectInputFolder" disabled="@isProcessingAny">Choose Input Folder</button>
-                    <code class="folder-path-display mt-2">@inputFolderPath</code>
-                </div>
-
-                <div class="folder-selection">
-                    <button class="btn btn-primary w-100" @onclick="SelectOutputFolder" disabled="@isProcessingAny">Choose Output Folder</button>
-                    <code class="folder-path-display mt-2">@outputFolderPath</code>
-                </div>
-
+                <div class="folder-selection"><button class="btn btn-primary w-100" @onclick="SelectInputFolder" disabled="@isProcessingAny">Choose Input Folder</button><code class="folder-path-display mt-2">@inputFolderPath</code></div>
+                <div class="folder-selection"><button class="btn btn-primary w-100" @onclick="SelectOutputFolder" disabled="@isProcessingAny">Choose Output Folder</button><code class="folder-path-display mt-2">@outputFolderPath</code></div>
                 <button class="process-btn" @onclick="StartProcessing" disabled="@(string.IsNullOrEmpty(inputFolderPath) || inputFolderPath.Contains("not selected") || string.IsNullOrEmpty(outputFolderPath) || outputFolderPath.Contains("not selected") || isProcessingAny)">
                     @if (isProcessingAny)
                     {
                         <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                         <span class="ms-2">Processing...</span>
-                    }
-                    else
-                    {
+ }
+else
+{
                         <span>▶ Start Processing</span>
                     }
                 </button>
-
-                <div class="progress-container">
-                    <div class="progress-bar-custom" style="width: @(totalFiles > 0 ? (processedCount * 100 / totalFiles) : 0)%"></div>
-                    <span class="progress-label">@processedCount / @totalFiles</span>
-                </div>
-
+                <div class="progress-container"><div class="progress-bar-custom" style="width: @(totalFiles > 0 ? (processedCount * 100 / totalFiles) : 0)%"></div><span class="progress-label">@processedCount / @totalFiles</span></div>
                 @if (!string.IsNullOrEmpty(formattedDuration))
                 {
                     <div class="duration-display"><strong>Total Time: @formattedDuration</strong></div>
                 }
-
                 @if (!isProcessingAny && processedCount > 0 && processedCount == totalFiles)
                 {
                     <button class="btn btn-success view-results-btn w-100" @onclick="OpenOutputFolder">📂 View Results</button>
                 }
             </div>
-
             <div class="alert-container">
                 @if (!string.IsNullOrEmpty(errorMessage))
                 {
                     <div class="alert alert-danger" @onclick="ClearError" style="cursor: pointer;">@errorMessage</div>
                 }
             </div>
-
             @if (imagePreviews.Count > 0)
             {
                 <div class="thumbnail-scroll-box">
-                    <Virtualize Items="imagePreviews" Context="preview" OverscanCount="10">
+                    @* === FIX: Replaced <Virtualize> with a standard @foreach loop to guarantee all items are rendered === *@
+                    @foreach (var preview in imagePreviews)
+                    {
                         <div class="image-thumbnail-card @(selectedIndex == imagePreviews.IndexOf(preview) ? "selected" : "")" @onclick="() => SelectPreview(imagePreviews.IndexOf(preview))">
                             <img src="@preview.ImageDataUrl" alt="@preview.FileName" class="image-thumbnail-img" />
                             <div class="thumbnail-info">
@@ -109,13 +95,12 @@
                                 }
                                 else if (preview.ClassificationResult != null)
                                 {
-                                    <div class="classification-badge @GetBadgeClass(preview.ClassificationResult.Label)">
-                                        @preview.ClassificationResult.Label
-                                    </div>
+
+                                    <div class="classification-badge @GetBadgeClass(preview.ClassificationResult.Label)">@preview.ClassificationResult.Label</div>
                                 }
                             </div>
                         </div>
-                    </Virtualize>
+                    }
                 </div>
             }
         </div>
@@ -123,6 +108,15 @@
 </div>
 
 <style>
+    .details-summary {
+        text-align: left;
+        line-height: 1.6;
+    }
+
+        .details-summary strong {
+            color: #343a40;
+        }
+
     .sort-page-container {
         padding: 1.5rem;
     }
@@ -180,6 +174,7 @@
         height: 28px;
         background-color: #e9ecef;
         border-radius: 8px;
+        overflow: hidden;
     }
 
     .progress-bar-custom {
@@ -276,69 +271,61 @@
         background-color: #198754;
     }
 
-    .badge-bad {
-        background-color: #ffc107;
-        color: #000;
-    }
-
-    .badge-blurred {
+    .badge-bad, .badge-blurred {
         background-color: #dc3545;
-    }
-
-    .badge-closed-eye {
-        background-color: #0d6efd;
-    }
-
-    .badge-duplicate {
-        background-color: #6c757d;
     }
 
     .badge-focused {
         background-color: #0dcaf0;
     }
 
+    .badge-closed-eye {
+        background-color: #fd7e14;
+    }
+
+    .badge-duplicate {
+        background-color: #6c757d;
+    }
+
     .badge-default {
         background-color: #6c757d;
     }
 
-    .details-summary {
-        padding: 0.75rem 1rem;
-        border-radius: 6px;
-        margin-top: 0.5rem;
-        font-weight: 500;
-        text-align: center;
-        border: 1px solid transparent;
+    .details-summary.badge-good {
+        color: #0f5132;
+        background-color: #d1e7dd;
+        border-color: #badbcc;
     }
 
-        .details-summary.badge-good {
-            color: #0f5132;
-            background-color: #d1e7dd;
-            border-color: #badbcc;
-        }
+    .details-summary.badge-bad {
+        color: #664d03;
+        background-color: #fff3cd;
+        border-color: #ffecb5;
+    }
 
-        .details-summary.badge-bad {
-            color: #664d03;
-            background-color: #fff3cd;
-            border-color: #ffecb5;
-        }
+    .details-summary.badge-blurred {
+        color: #58151c;
+        background-color: #f8d7da;
+        border-color: #f1aeb5;
+    }
 
-        .details-summary.badge-blurred {
-            color: #58151c;
-            background-color: #f8d7da;
-            border-color: #f1aeb5;
-        }
+    .details-summary.badge-focused {
+        color: #052c65;
+        background-color: #cce5ff;
+        border-color: #b6d4fe;
+    }
 
-        .details-summary.badge-closed-eye {
-            color: #052c65;
-            background-color: #cce5ff;
-            border-color: #b6d4fe;
-        }
+    .details-summary.badge-closed-eye {
+        color: #513005;
+        background-color: #fff0c2;
+        border-color: #ffe6a0;
+    }
 
-        .details-summary.badge-duplicate, .details-summary.badge-default {
-            color: #212529;
-            background-color: #e2e3e5;
-            border-color: #d3d6d8;
-        }
+    .details-summary.badge-duplicate, .details-summary.badge-default {
+        color: #212529;
+        background-color: #e2e3e5;
+        border-color: #d3d6d8;
+    }
 </style>
 
 @code {
@@ -352,281 +339,148 @@
     private Stopwatch processingStopwatch = new Stopwatch();
     private string formattedDuration = "";
     private int selectedIndex = 0;
-
-    private readonly string[] ClassificationFolders = { "Good", "Bad", "Blurred", "Closed Eye", "Duplicate", "Focused" };
+    private readonly string[] ClassificationFolders = { "Good", "Focused", "Blurred", "Closed Eye", "Duplicate" };
     private readonly string[] AllowedExtensions = { ".jpg", ".jpeg", ".png", ".bmp", ".webp" };
+    private System.Timers.Timer? uiUpdateTimer;
 
-    private async Task SelectInputFolder()
+    protected override void OnInitialized()
+    {
+        uiUpdateTimer = new System.Timers.Timer(500);
+        uiUpdateTimer.Elapsed += async (sender, e) => await InvokeAsync(StateHasChanged);
+        uiUpdateTimer.AutoReset = true;
+    }
+
+    private string CreateThumbnailDataUrl(byte[] imageBytes, int width, int height)
     {
         try
         {
-            var result = await FolderPicker.Default.PickAsync(CancellationToken.None);
-            if (result.IsSuccessful && result.Folder != null) inputFolderPath = result.Folder.Path;
+            using var ms = new MemoryStream(imageBytes);
+            using var image = Image.FromStream(ms);
+            var ratioX = (double)width / image.Width;
+            var ratioY = (double)height / image.Height;
+            var ratio = Math.Min(ratioX, ratioY);
+            var newWidth = (int)(image.Width * ratio);
+            var newHeight = (int)(image.Height * ratio);
+            using var newImage = new Bitmap(newWidth, newHeight);
+            using var graphics = Graphics.FromImage(newImage);
+            graphics.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighSpeed;
+            graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.Low;
+            graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighSpeed;
+            graphics.DrawImage(image, 0, 0, newWidth, newHeight);
+            using var msThumbnail = new MemoryStream();
+            newImage.Save(msThumbnail, ImageFormat.Jpeg);
+            return $"data:image/jpeg;base64,{Convert.ToBase64String(msThumbnail.ToArray())}";
         }
-        catch (Exception ex) { errorMessage = $"Folder selection error: {ex.Message}"; }
-    }
-
-    private async Task SelectOutputFolder()
-    {
-        try
-        {
-            var result = await FolderPicker.Default.PickAsync(CancellationToken.None);
-            if (result.IsSuccessful && result.Folder != null) outputFolderPath = result.Folder.Path;
-        }
-        catch (Exception ex) { errorMessage = $"Folder selection error: {ex.Message}"; }
-    }
-
-    private async Task StartProcessing()
-    {
-        if (string.IsNullOrWhiteSpace(inputFolderPath) || inputFolderPath.Contains("not selected") ||
-            string.IsNullOrWhiteSpace(outputFolderPath) || outputFolderPath.Contains("not selected"))
-        {
-            errorMessage = "Please select both input and output folders.";
-            return;
-        }
-
-        var sessionId = Guid.NewGuid().ToString();
-        isProcessingAny = true;
-        errorMessage = "";
-        processedCount = 0;
-        selectedIndex = 0;
-        imagePreviews.Clear();
-        processingStopwatch.Restart();
-        AppState.SetIsProcessing(true);
-
-        if (AppState.ProcessingCancellationTokenSource is null)
-        {
-            AppState.SetIsProcessing(false);
-            return;
-        }
-
-        try { await Http.PostAsync("http://localhost:8000/clear-state/", null, AppState.ProcessingCancellationTokenSource.Token); }
         catch (Exception ex)
         {
-            Logger.LogWarning("Could not clear backend state: {Message}", ex.Message);
+            Logger.LogError(ex, "Failed to create thumbnail.");
+            return string.Empty;
         }
-
-        var filePaths = Directory.GetFiles(inputFolderPath).Where(f => AllowedExtensions.Contains(Path.GetExtension(f).ToLowerInvariant())).ToList();
-        totalFiles = filePaths.Count;
-
-        if (totalFiles > 0)
-        {
-            await ProcessFilesConcurrently(filePaths, sessionId, AppState.ProcessingCancellationTokenSource.Token);
-        }
-        else
-        {
-            errorMessage = "No valid images found in the selected folder.";
-        }
-
-        processingStopwatch.Stop();
-        formattedDuration = $"{processingStopwatch.Elapsed:hh\\:mm\\:ss}";
-        isProcessingAny = false;
-        AppState.SetIsProcessing(false);
     }
 
     private async Task ProcessFilesConcurrently(List<string> filePaths, string sessionId, CancellationToken cancellationToken)
     {
-        foreach (var filePath in filePaths) { imagePreviews.Add(new ImagePreview { FileName = Path.GetFileName(filePath) }); }
+        var previewsToAdd = filePaths.Select(filePath => new ImagePreview { FileName = Path.GetFileName(filePath) }).ToList();
+        imagePreviews.AddRange(previewsToAdd);
+        if (imagePreviews.Any()) { await SelectPreview(0); }
         await InvokeAsync(StateHasChanged);
+
+        uiUpdateTimer?.Start();
 
         var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount, CancellationToken = cancellationToken };
 
         await Parallel.ForEachAsync(imagePreviews, parallelOptions, async (preview, token) =>
         {
-            var filePath = Path.Combine(inputFolderPath, preview.FileName);
+            var sourceFilePath = Path.Combine(inputFolderPath, preview.FileName);
             preview.IsProcessing = true;
-            await InvokeAsync(StateHasChanged);
-
             try
             {
-                if (!File.Exists(filePath))
-                {
-                    preview.ClassificationResult = new ClassificationResult { Label = "Error", Details = new ClassificationDetails { Message = "File not found at source." } };
-                    return; // Skip this file
-                }
+                if (!File.Exists(sourceFilePath)) { return; }
 
-                var fileBytes = await File.ReadAllBytesAsync(filePath, token);
+                var fileBytes = await File.ReadAllBytesAsync(sourceFilePath, token);
                 preview.FileSize = fileBytes.Length;
+
+                var extension = Path.GetExtension(preview.FileName).ToLowerInvariant();
+                if (extension == ".webp") { preview.ImageDataUrl = $"data:image/webp;base64,{Convert.ToBase64String(fileBytes)}"; }
+                else { preview.ImageDataUrl = CreateThumbnailDataUrl(fileBytes, 150, 150); }
+
                 using var content = new MultipartFormDataContent();
                 content.Add(new ByteArrayContent(fileBytes), "file", preview.FileName);
-
                 var response = await Http.PostAsync("http://localhost:8000/upload-image/", content, token);
 
                 if (response.IsSuccessStatusCode)
                 {
                     var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                    preview.ClassificationResult = await response.Content.ReadFromJsonAsync<ClassificationResult>(options, token);
+                    var uploadResponse = await response.Content.ReadFromJsonAsync<UploadResponsePayload>(options, token);
+                    if (uploadResponse != null)
+                    {
+                        preview.ClassificationResult = uploadResponse.Classification;
+                        if (!string.IsNullOrEmpty(uploadResponse.Classification.Label) && ClassificationFolders.Contains(uploadResponse.Classification.Label))
+                        {
+                            (int width, int height) = GetImageDimensionsFromBytes(fileBytes);
+                            string orientationFolder = width >= height ? "Landscape" : "Portrait";
+                            var destinationFolder = Path.Combine(outputFolderPath, orientationFolder, uploadResponse.Classification.Label);
+                            Directory.CreateDirectory(destinationFolder);
+                            var destinationPath = Path.Combine(destinationFolder, uploadResponse.SanitizedFilename);
+                            if (File.Exists(destinationPath)) { destinationPath = Path.Combine(destinationFolder, $"{Path.GetFileNameWithoutExtension(uploadResponse.SanitizedFilename)}_{DateTime.Now.Ticks}{Path.GetExtension(uploadResponse.SanitizedFilename)}"); }
+                            File.Move(sourceFilePath, destinationPath);
+                            var historyEntry = new LogHistoryEntry { SessionId = sessionId, FileName = uploadResponse.SanitizedFilename, Label = uploadResponse.Classification.Label, DetailsMessage = uploadResponse.Classification.GetDetailsSummary(), Path = uploadResponse.ImageUrl };
+                            await Http.PostAsJsonAsync("http://localhost:8000/log-history-entry", historyEntry, token);
+                        }
+                    }
                 }
                 else
                 {
                     var errorContent = await response.Content.ReadAsStringAsync(token);
                     preview.ClassificationResult = new ClassificationResult { Label = "Error", Details = new ClassificationDetails { Message = errorContent } };
                     errorMessage = $"Error processing {preview.FileName}: {errorContent}";
-                    await InvokeAsync(StateHasChanged);
-                    return;
-                }
-
-                if (preview.ClassificationResult == null)
-                {
-                    preview.ClassificationResult = new ClassificationResult { Label = "Error", Details = new ClassificationDetails { Message = "Classification result was null." } };
-                    return;
-                }
-
-                preview.ImageDataUrl = $"http://localhost:8000/static/images/{Uri.EscapeDataString(preview.FileName)}";
-
-                if (!string.IsNullOrEmpty(preview.ClassificationResult.Label) && ClassificationFolders.Contains(preview.ClassificationResult.Label))
-                {
-                    (int width, int height) = GetImageDimensionsFromBytes(fileBytes);
-                    string orientationFolder = width >= height ? "Landscape" : "Portrait";
-                    var destinationFolder = Path.Combine(outputFolderPath, orientationFolder, preview.ClassificationResult.Label);
-                    Directory.CreateDirectory(destinationFolder);
-                    var destinationPath = Path.Combine(destinationFolder, preview.FileName);
-
-                    if (File.Exists(destinationPath))
-                    {
-                        destinationPath = Path.Combine(destinationFolder, $"{Path.GetFileNameWithoutExtension(preview.FileName)}_{DateTime.Now.Ticks}{Path.GetExtension(preview.FileName)}");
-                    }
-
-                    File.Move(filePath, destinationPath);
-
-                    var historyEntry = new LogHistoryEntry
-                    {
-                        SessionId = sessionId,
-                        FileName = Path.GetFileName(destinationPath), // Use the final filename
-                        Label = preview.ClassificationResult.Label,
-                        DetailsMessage = preview.ClassificationResult.GetDetailsSummary(),
-                        Path = destinationPath
-                    };
-
-                    var jsonPayload = JsonSerializer.Serialize(historyEntry);
-                    Logger.LogInformation("ATTEMPTING TO LOG HISTORY. Payload: {Payload}", jsonPayload);
-
-                    try
-                    {
-                        var logResponse = await Http.PostAsJsonAsync("http://localhost:8000/log-history-entry", historyEntry, token);
-                        var responseContent = await logResponse.Content.ReadAsStringAsync(token);
-
-                        Logger.LogInformation("HISTORY LOG RESPONSE. Status: {StatusCode}, Content: {Content}", logResponse.StatusCode, responseContent);
-
-                        if (!logResponse.IsSuccessStatusCode)
-                        {
-                            errorMessage = $"FATAL: Could not save history for {preview.FileName}. Status: {logResponse.StatusCode}. Reason: {responseContent}";
-                            await InvokeAsync(StateHasChanged);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.LogError(ex, "HTTP REQUEST TO LOG HISTORY FAILED COMPLETELY.");
-                        errorMessage = $"NETWORK ERROR: Could not send history for {preview.FileName}. Check backend connection. Error: {ex.Message}";
-                        await InvokeAsync(StateHasChanged);
-                    }
                 }
             }
             catch (OperationCanceledException) { /* Expected */ }
-            catch (Exception ex)
-            {
-                Logger.LogError(ex, "A critical error occurred while processing {FileName}", preview.FileName);
-                preview.HasError = true;
-                preview.ErrorMessage = ex.Message;
-                errorMessage = $"CRITICAL ERROR on {preview.FileName}: {ex.Message}";
-            }
+            catch (Exception ex) { Logger.LogError(ex, "A critical error occurred while processing {FileName}", preview.FileName); preview.HasError = true; preview.ErrorMessage = ex.Message; }
             finally
             {
                 preview.IsProcessing = false;
                 Interlocked.Increment(ref processedCount);
-                await InvokeAsync(StateHasChanged);
             }
         });
+
+        uiUpdateTimer?.Stop();
+        await InvokeAsync(StateHasChanged);
     }
 
-    private (int, int) GetImageDimensionsFromBytes(byte[] imageBytes)
+    private async Task SelectPreview(int index)
     {
-        try
+        if (index < 0 || index >= imagePreviews.Count) return;
+        if (selectedIndex < imagePreviews.Count) { imagePreviews[selectedIndex].ClearHighResData(); }
+        selectedIndex = index;
+        var selectedPreview = imagePreviews[selectedIndex];
+        var sourceFilePath = Path.Combine(inputFolderPath, selectedPreview.FileName);
+        if (File.Exists(sourceFilePath))
         {
-            using var ms = new MemoryStream(imageBytes);
-            using var image = System.Drawing.Image.FromStream(ms);
-            return (image.Width, image.Height);
+            var fileBytes = await File.ReadAllBytesAsync(sourceFilePath);
+            selectedPreview.SetHighResData(fileBytes);
         }
-        catch { return (0, 0); }
+        await InvokeAsync(StateHasChanged);
     }
 
-    private void OpenOutputFolder()
-    {
-        try
-        {
-            if (!string.IsNullOrEmpty(outputFolderPath) && Directory.Exists(outputFolderPath))
-            {
-                Process.Start(new ProcessStartInfo { FileName = outputFolderPath, UseShellExecute = true });
-            }
-        }
-        catch (Exception ex) { errorMessage = $"Could not open folder: {ex.Message}"; }
-    }
-
-    private void SelectPreview(int index) => selectedIndex = index;
+    private async Task SelectInputFolder() { try { var result = await FolderPicker.Default.PickAsync(); if (result.IsSuccessful && result.Folder != null) inputFolderPath = result.Folder.Path; } catch { /* Ignore */ } }
+    private async Task SelectOutputFolder() { try { var result = await FolderPicker.Default.PickAsync(); if (result.IsSuccessful && result.Folder != null) outputFolderPath = result.Folder.Path; } catch { /* Ignore */ } }
+    private async Task StartProcessing() { if (string.IsNullOrWhiteSpace(inputFolderPath) || inputFolderPath.Contains("not selected") || string.IsNullOrWhiteSpace(outputFolderPath) || outputFolderPath.Contains("not selected")) { errorMessage = "Please select both input and output folders."; return; } var sessionId = Guid.NewGuid().ToString(); isProcessingAny = true; errorMessage = ""; processedCount = 0; selectedIndex = 0; imagePreviews.Clear(); processingStopwatch.Restart(); AppState.SetIsProcessing(true); if (AppState.ProcessingCancellationTokenSource is null) { AppState.SetIsProcessing(false); return; } try { await Http.PostAsync("http://localhost:8000/clear-state/", null, AppState.ProcessingCancellationTokenSource.Token); } catch (Exception ex) { Logger.LogWarning("Could not clear backend state: {Message}", ex.Message); } var filePaths = Directory.GetFiles(inputFolderPath).Where(f => AllowedExtensions.Contains(Path.GetExtension(f).ToLowerInvariant())).ToList(); totalFiles = filePaths.Count; if (totalFiles > 0) { await ProcessFilesConcurrently(filePaths, sessionId, AppState.ProcessingCancellationTokenSource.Token); } else { errorMessage = "No valid images found in the selected folder."; } processingStopwatch.Stop(); formattedDuration = $"{processingStopwatch.Elapsed:hh\\:mm\\:ss}"; isProcessingAny = false; AppState.SetIsProcessing(false); }
+    private void OpenOutputFolder() { try { if (!string.IsNullOrEmpty(outputFolderPath) && Directory.Exists(outputFolderPath)) { Process.Start(new ProcessStartInfo { FileName = outputFolderPath, UseShellExecute = true }); } } catch (Exception ex) { errorMessage = $"Could not open folder: {ex.Message}"; } }
+    private (int, int) GetImageDimensionsFromBytes(byte[] imageBytes) { try { using var ms = new MemoryStream(imageBytes); using var image = Image.FromStream(ms); return (image.Width, image.Height); } catch { return (0, 0); } }
     private void ClearError() => errorMessage = "";
     private string GetBadgeClass(string? label) => string.IsNullOrEmpty(label) ? "badge-default" : $"badge-{label.ToLower().Replace(" ", "-")}";
-    private string FormatFileSize(long bytes)
-    {
-        if (bytes <= 0) return "0 B";
-        string[] orders = { "B", "KB", "MB", "GB", "TB" };
-        var i = (int)Math.Floor(Math.Log(bytes, 1024));
-        return $"{bytes / Math.Pow(1024, i):F2} {orders[i]}";
-    }
+    private string FormatFileSize(long bytes) { if (bytes <= 0) return "0 B"; string[] orders = { "B", "KB", "MB", "GB", "TB" }; var i = (int)Math.Floor(Math.Log(bytes, 1024)); return $"{bytes / Math.Pow(1024, i):F2} {orders[i]}"; }
 
-    public class ImagePreview
-    {
-        public string FileName { get; set; } = "";
-        public string ImageDataUrl { get; set; } = "";
-        public long FileSize { get; set; }
-        public bool IsProcessing { get; set; }
-        public ClassificationResult? ClassificationResult { get; set; }
-        public bool HasError { get; set; }
-        public string ErrorMessage { get; set; } = "";
-    }
+    public class ImagePreview { public string FileName { get; set; } = ""; public string ImageDataUrl { get; set; } = ""; private byte[]? _highResBytes; public string HighResDataUrl => _highResBytes != null ? $"data:image/{Path.GetExtension(FileName).TrimStart('.').ToLower()};base64,{Convert.ToBase64String(_highResBytes)}" : ImageDataUrl; public long FileSize { get; set; } public bool IsProcessing { get; set; } public ClassificationResult? ClassificationResult { get; set; } public bool HasError { get; set; } public string ErrorMessage { get; set; } = ""; public void SetHighResData(byte[] data) => _highResBytes = data; public void ClearHighResData() => _highResBytes = null; }
+    public class UploadResponsePayload { [JsonPropertyName("classification")] public ClassificationResult Classification { get; set; } = new(); [JsonPropertyName("sanitizedFilename")] public string SanitizedFilename { get; set; } = ""; [JsonPropertyName("imageUrl")] public string ImageUrl { get; set; } = ""; }
+    public class ClassificationResult { [JsonPropertyName("label")] public string Label { get; set; } = ""; [JsonPropertyName("details")] public ClassificationDetails? Details { get; set; } public string GetDetailsSummary() { if (Details == null) return "No details available."; var summary = $"<strong>{Details.Message}</strong><br />"; switch (Label) { case "Good": case "Focused": case "Blurred": if (Details.Sharpness.HasValue) summary += $"Sharpness: {Details.Sharpness.Value:F1}<br />"; if (Details.Exposure.HasValue) summary += $"Exposure: {Details.Exposure.Value:F1}<br />"; if (Details.FaceCount.HasValue) summary += $"Faces Detected: {Details.FaceCount.Value}"; break; case "Closed Eye": if (Details.FaceCount.HasValue) summary += $"Faces Detected: {Details.FaceCount.Value}"; break; } return summary.TrimEnd(new[] { '<', 'b', 'r', ' ', '/' }); } }
+    public class ClassificationDetails { [JsonPropertyName("message")] public string? Message { get; set; } [JsonPropertyName("sharpness")] public float? Sharpness { get; set; } [JsonPropertyName("exposure")] public float? Exposure { get; set; } [JsonPropertyName("faceCount")] public int? FaceCount { get; set; } [JsonPropertyName("isDuplicate")] public bool IsDuplicate { get; set; } [JsonPropertyName("hasClosedEyes")] public bool HasClosedEyes { get; set; } }
+    public class LogHistoryEntry { [JsonPropertyName("sessionId")] public string SessionId { get; set; } = string.Empty; [JsonPropertyName("fileName")] public string FileName { get; set; } = string.Empty; [JsonPropertyName("label")] public string Label { get; set; } = string.Empty; [JsonPropertyName("detailsMessage")] public string? DetailsMessage { get; set; } [JsonPropertyName("path")] public string Path { get; set; } = string.Empty; }
 
-    public class ClassificationResult
+    public void Dispose()
     {
-        public string Label { get; set; } = "";
-        public ClassificationDetails? Details { get; set; }
-
-        public string GetDetailsSummary()
-        {
-            if (Details == null) return "No details available";
-            return Label switch
-            {
-                "Good" => $"Quality is good (Sharpness: {Details.Sharpness:F1}, Exposure: {Details.Exposure:F1})",
-                "Bad" => $"Poor exposure (Value: {Details.Exposure:F1})",
-                "Blurred" => $"Image is blurry (Sharpness: {Details.Sharpness:F1})",
-                "Focused" => $"Subject is in focus (Sharpness: {Details.Sharpness:F1})",
-                _ => Details.Message ?? "No additional details."
-            };
-        }
-    }
-
-    public class ClassificationDetails
-    {
-        [JsonPropertyName("message")]
-        public string? Message { get; set; }
-        [JsonPropertyName("sharpness")]
-        public float? Sharpness { get; set; }
-        [JsonPropertyName("exposure")]
-        public float? Exposure { get; set; }
-    }
-
-    public class LogHistoryEntry
-    {
-        [JsonPropertyName("sessionId")]
-        public string SessionId { get; set; } = string.Empty;
-        [JsonPropertyName("fileName")]
-        public string FileName { get; set; } = string.Empty;
-        [JsonPropertyName("label")]
-        public string Label { get; set; } = string.Empty;
-        [JsonPropertyName("detailsMessage")]
-        public string? DetailsMessage { get; set; }
-        [JsonPropertyName("path")]
-        public string Path { get; set; } = string.Empty;
+        uiUpdateTimer?.Dispose();
     }
 }
-```
-
-This version **will** compile. Now you can perform the diagnostic test from the previous step. Run your application, open the browser console, process one image, and send me the log messages that appear. We will solve this.
