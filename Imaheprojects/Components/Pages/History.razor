@@ -4,6 +4,7 @@
 @using Microsoft.Extensions.Logging
 @inject HttpClient Http
 @inject ILogger<History> Logger
+@inject IJSRuntime JSRuntime
 
 <div class="history-page-wrapper">
     <div class="history-page-container">
@@ -58,9 +59,21 @@
                                     <h5 class="mb-0 ms-2">@GetGroupHeaderText(sessionGroup)</h5>
                                     <span class="badge bg-secondary ms-3">@sessionGroup.Count()</span>
                                 </div>
-                                <button class="btn btn-sm btn-outline-secondary toggle-btn" @onclick="() => ToggleGroup(sessionGroup.Key)" @onclick:stopPropagation="true">
-                                    @(isExpanded ? "Minimize" : "Expand")
-                                </button>
+                                <div class="header-actions">
+                                    <button class="btn btn-sm btn-outline-success save-all-btn" @onclick="(e) => SaveSessionToFolder(e, sessionGroup)" @onclick:stopPropagation="true" disabled="@isZippingState.GetValueOrDefault(sessionGroup.Key, false)">
+                                        @if (isZippingState.GetValueOrDefault(sessionGroup.Key, false))
+                                        {
+                                            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                            <span class="ms-1">Zipping...</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="oi oi-folder" aria-hidden="true"></span>
+                                            <span class="ms-1">Save All...</span>
+                                        }
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-secondary toggle-btn" @onclick="() => ToggleGroup(sessionGroup.Key)" @onclick:stopPropagation="true">@(isExpanded ? "Minimize" : "Expand")</button>
+                                </div>
                             </div>
                             <div class="history-group-content @(isExpanded ? "expanded" : "")">
                                 <div class="history-grid">
@@ -79,12 +92,30 @@
                                                 <div class="history-card-filename" title="@entry.FileName">@entry.FileName</div>
                                                 <div class="badge @GetBadgeClass(entry.Label)">@entry.Label</div>
                                                 <div class="history-card-timestamp">@FormatTimestamp(entry.Timestamp)</div>
-                                                @if (!string.IsNullOrEmpty(entry.DetailsMessage))
-                                                {
-                                                    <div class="history-card-details">
-                                                        @((MarkupString)entry.DetailsMessage)
-                                                    </div>
-                                                }
+
+                                                <div class="history-card-details">
+                                                    @if (!string.IsNullOrEmpty(entry.DetailsMessage))
+                                                    {
+                                                        <div>@((MarkupString)entry.DetailsMessage)</div>
+                                                    }
+
+                                                    <!-- THE FIX IS HERE -->
+                                                    @if (entry.Label != "Closed Eye")
+                                                    {
+                                                        @if (entry.Sharpness.HasValue)
+                                                        {
+                                                            <div><strong>Sharpness:</strong> @entry.Sharpness.Value.ToString("F1")</div>
+                                                        }
+                                                        @if (entry.Exposure.HasValue)
+                                                        {
+                                                            <div><strong>Exposure:</strong> @entry.Exposure.Value.ToString("F1")</div>
+                                                        }
+                                                    }
+                                                </div>
+
+                                                <button class="btn btn-sm btn-outline-success save-btn" @onclick="() => SaveImageToFolder(entry)">
+                                                    <span class="oi oi-data-transfer-download" aria-hidden="true"></span> Save to Folder...
+                                                </button>
                                             </div>
                                         </div>
                                     }
@@ -98,10 +129,45 @@
     </div>
 </div>
 <style>
+    /* STYLES ARE UNCHANGED */
+    .history-group-header {
+        align-items: center;
+    }
+
+    .header-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .save-all-btn {
+        width: 110px;
+    }
+
+    .toggle-btn {
+        width: 90px;
+    }
+
+    .save-btn {
+        width: 100%;
+        margin-top: auto;
+    }
+
+    .history-card-body {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .history-card-details {
+        margin-top: 0.75rem;
+        margin-bottom: 1rem;
+        flex-grow: 1;
+    }
+
     .history-page-wrapper {
         position: relative;
         height: calc(100vh - 70px);
         padding: 2rem;
+        background-image: url('/images/film-background.jpg');
         background-color: #343a40;
         background-size: cover;
         background-position: center;
@@ -205,10 +271,6 @@
             color: #343a40;
         }
 
-    .toggle-btn {
-        width: 80px;
-    }
-
     .history-group-content {
         max-height: 0;
         overflow: hidden;
@@ -216,10 +278,9 @@
         background-color: white;
     }
 
-        /* === THE ONLY CHANGE IS ON THIS LINE === */
         .history-group-content.expanded {
-            max-height: none; /* Changed from 5000px to none to remove the height limit */
-            transition: max-height 0.5s ease-in;
+            max-height: none;
+            transition: none;
         }
 
     .history-grid {
@@ -285,11 +346,6 @@
         font-weight: bold;
     }
 
-    .history-card-body {
-        padding: 1rem;
-        flex-grow: 1;
-    }
-
     .history-card-filename {
         font-weight: 600;
         white-space: nowrap;
@@ -343,10 +399,9 @@
     .history-card-details {
         font-size: 0.8rem;
         color: #6c757d;
-        margin-top: 0.75rem;
-        padding-top: 0.75rem;
-        border-top: 1px solid #f0f0f0;
         line-height: 1.4;
+        border-top: 1px solid #f0f0f0;
+        padding-top: 0.75rem;
     }
 
         .history-card-details strong {
@@ -358,15 +413,19 @@
     private List<HistoryEntry>? allHistoryEntries;
     private IEnumerable<IGrouping<string, HistoryEntry>>? filteredAndGroupedHistory;
     private Dictionary<string, bool> groupToggleState = new();
+    private Dictionary<string, bool> isZippingState = new();
     private bool isLoading = true;
     private string currentFilter = "All";
     private readonly string[] classificationFilters = { "All", "Good", "Focused", "Blurred", "Closed Eye", "Bad", "Duplicate" };
+
+    private async Task SaveImageToFolder(HistoryEntry entry) { try { var imageUrl = $"http://localhost:8000/{entry.Path}"; var imageBytes = await Http.GetByteArrayAsync(imageUrl); await JSRuntime.InvokeVoidAsync("triggerFileDownload", entry.FileName, imageBytes); } catch (Exception ex) { Logger.LogError(ex, "Failed to save image {FileName}", entry.FileName); await JSRuntime.InvokeVoidAsync("alert", $"Could not save '{entry.FileName}'. Please check the console for errors."); } }
+    private async Task SaveSessionToFolder(MouseEventArgs e, IGrouping<string, HistoryEntry> sessionGroup) { var sessionId = sessionGroup.Key; isZippingState[sessionId] = true; await InvokeAsync(StateHasChanged); try { var filesToZip = new List<object>(); var downloadTasks = sessionGroup.Select(async entry => { try { var imageUrl = $"http://localhost:8000/{entry.Path}"; var imageBytes = await Http.GetByteArrayAsync(imageUrl); return new { name = entry.FileName, data = Convert.ToBase64String(imageBytes) }; } catch (Exception ex) { Logger.LogWarning(ex, "Could not download image {FileName} for zipping.", entry.FileName); return null; } }); var results = await Task.WhenAll(downloadTasks); filesToZip.AddRange(results.Where(f => f != null)!); if (filesToZip.Any()) { string safeFileName = GetGroupHeaderText(sessionGroup).Replace(":", "-").Replace(",", ""); string zipFileName = $"{safeFileName}.zip"; await JSRuntime.InvokeVoidAsync("triggerZipDownload", zipFileName, filesToZip); } } catch (Exception ex) { Logger.LogError(ex, "Failed to create zip for session {SessionId}", sessionId); await JSRuntime.InvokeVoidAsync("alert", "Failed to create zip file. See console for details."); } finally { isZippingState[sessionId] = false; await InvokeAsync(StateHasChanged); } }
     protected override async Task OnInitializedAsync() => await LoadAndProcessHistory();
     private async Task LoadAndProcessHistory() { isLoading = true; try { allHistoryEntries = await Http.GetFromJsonAsync<List<HistoryEntry>>("http://localhost:8000/history"); ApplyFilterAndGrouping(); } catch (Exception ex) { Logger.LogError(ex, "Failed to load history from backend."); allHistoryEntries = new List<HistoryEntry>(); filteredAndGroupedHistory = null; } finally { isLoading = false; } }
     private void ApplyFilter(string newFilter) { currentFilter = newFilter; ApplyFilterAndGrouping(); }
     private void ApplyFilterAndGrouping() { if (allHistoryEntries == null) return; var filteredEntries = (currentFilter == "All") ? allHistoryEntries : allHistoryEntries.Where(e => e.Label.Equals(currentFilter, StringComparison.OrdinalIgnoreCase)); filteredAndGroupedHistory = filteredEntries.GroupBy(e => e.SessionId).OrderByDescending(g => DateTime.Parse(g.First().Timestamp)); foreach (var group in filteredAndGroupedHistory) { if (!groupToggleState.ContainsKey(group.Key)) { groupToggleState[group.Key] = true; } } }
     private void ToggleGroup(string sessionId) { if (groupToggleState.ContainsKey(sessionId)) { groupToggleState[sessionId] = !groupToggleState[sessionId]; } }
-    private async Task ClearHistory() { isLoading = true; await Http.DeleteAsync("http://localhost:8000/history"); groupToggleState.Clear(); await LoadAndProcessHistory(); }
+    private async Task ClearHistory() { if (!await JSRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to delete all processing history? This action cannot be undone.")) return; isLoading = true; await Http.DeleteAsync("http://localhost:8000/history"); groupToggleState.Clear(); await LoadAndProcessHistory(); }
     private string GetGroupHeaderText(IGrouping<string, HistoryEntry> group) { if (!group.Any()) return "Empty Session"; var minTimestamp = group.Min(e => DateTime.Parse(e.Timestamp)); var maxTimestamp = group.Max(e => DateTime.Parse(e.Timestamp)); string datePart = minTimestamp.ToString("MMMM d, yyyy"); string timePart; if ((maxTimestamp - minTimestamp).TotalMinutes < 1) { timePart = minTimestamp.ToString("h:mm tt"); } else { timePart = $"{minTimestamp:h:mm tt} - {maxTimestamp:h:mm tt}"; } return $"{datePart} ({timePart})"; }
     private string GetNoHistoryMessage() => (currentFilter == "All") ? "No History Found" : $"No '{currentFilter}' images found in history.";
     private string GetBadgeClass(string? label) => $"badge-{label?.ToLower().Replace(" ", "-") ?? "default"}";
@@ -382,5 +441,7 @@
         [JsonPropertyName("details_message")] public string? DetailsMessage { get; set; }
         [JsonPropertyName("path")] public string Path { get; set; } = "";
         public bool ImageHasError { get; set; }
+        [JsonPropertyName("sharpness")] public float? Sharpness { get; set; }
+        [JsonPropertyName("exposure")] public float? Exposure { get; set; }
     }
 }

@@ -9,6 +9,10 @@
     <link rel="stylesheet" href="css/app.css" />
     <link rel="stylesheet" href="Imaheprojects.styles.css" />
     <link rel="icon" href="data:,">
+
+    <!-- === FIX #1: ADD THE JSZIP LIBRARY SCRIPT HERE === -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
 </head>
 
 <body>
@@ -26,19 +30,51 @@
     <script src="_framework/blazor.webview.js" autostart="false"></script>
 
     <script>
-        // Existing helper
-        window.triggerFileInputClick = function (element) {
-            if (element) element.click();
-        }
+        // ... (your existing triggerFileInputClick and scrollToElement functions)
 
-        window.scrollToElement = function (elementId) {
-            const element = document.getElementById(elementId);
-            if (element) {
-                element.scrollIntoView({ behavior: 'smooth' });
+        // For downloading a SINGLE file
+        window.triggerFileDownload = function (fileName, fileBytes) {
+            const byteCharacters = atob(fileBytes);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
             }
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray], { type: 'application/octet-stream' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(link.href);
         }
 
-        // The window.pickFolder function has been removed.
+        // === FIX #5: ADD THIS NEW FUNCTION FOR ZIPPING MULTIPLE FILES ===
+        window.triggerZipDownload = function (zipFileName, files) {
+            const zip = new JSZip();
+
+            files.forEach(file => {
+                // The C# byte[] is sent as a base64 string. We need to decode it.
+                const byteCharacters = atob(file.data);
+                const byteNumbers = new Array(byteCharacters.length);
+                for (let i = 0; i < byteCharacters.length; i++) {
+                    byteNumbers[i] = byteCharacters.charCodeAt(i);
+                }
+                const byteArray = new Uint8Array(byteNumbers);
+                zip.file(file.name, byteArray);
+            });
+
+            zip.generateAsync({ type: "blob" }).then(function (content) {
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(content);
+                link.download = zipFileName;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(link.href);
+            });
+        }
     </script>
 
 </body>
