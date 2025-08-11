@@ -6,13 +6,10 @@
     <title>Imahe</title>
     <base href="/" />
     <link rel="stylesheet" href="css/bootstrap/bootstrap.min.css" />
+    <link rel="stylesheet" href="css/open-iconic/font/css/open-iconic-bootstrap.min.css" />
     <link rel="stylesheet" href="css/app.css" />
     <link rel="stylesheet" href="Imaheprojects.styles.css" />
     <link rel="icon" href="data:,">
-
-    <!-- === FIX #1: ADD THE JSZIP LIBRARY SCRIPT HERE === -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-
 </head>
 
 <body>
@@ -28,6 +25,13 @@
     </div>
 
     <script src="_framework/blazor.webview.js" autostart="false"></script>
+
+    <!-- JS Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+    <!-- === THE FIX IS HERE: ADD THE BOOTSTRAP JS BUNDLE === -->
+    <script src="css/bootstrap/bootstrap.bundle.min.js"></script>
+
 
     <script>
         // ... (your existing triggerFileInputClick and scrollToElement functions)
@@ -50,12 +54,11 @@
             URL.revokeObjectURL(link.href);
         }
 
-        // === FIX #5: ADD THIS NEW FUNCTION FOR ZIPPING MULTIPLE FILES ===
+        // For zipping and downloading MULTIPLE files
         window.triggerZipDownload = function (zipFileName, files) {
             const zip = new JSZip();
 
             files.forEach(file => {
-                // The C# byte[] is sent as a base64 string. We need to decode it.
                 const byteCharacters = atob(file.data);
                 const byteNumbers = new Array(byteCharacters.length);
                 for (let i = 0; i < byteCharacters.length; i++) {

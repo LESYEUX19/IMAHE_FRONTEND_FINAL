@@ -1,31 +1,199 @@
 @page "/learn-more"
 
-<div class="learnmore-container">
-    <h1 class="learnmore-title">LEARN MORE</h1>
-    <div class="learnmore-sub">IMAHE</div>
-    <div class="learnmore-desc">where every image finds its place...</div>
-    <hr class="learnmore-divider" />
-    <div class="learnmore-faq-row">
-        <div class="learnmore-faq-col">
-            <div class="learnmore-faq-q"><b>What is the IMAHE system?</b></div>
-            <div class="learnmore-faq-a">IMAHE is an AI-powered photo sorting app that uses Computer Vision and Machine Learning Agorithms to automatically classify images as Good, Bad, Flagged, or Duplicate based on quality and also their orientations which are the Landscape and Portrait.</div>
-            <div class="learnmore-faq-q"><b>How does IMAHE detect low-quality photos?</b></div>
-            <div class="learnmore-faq-a">IMAHE checks sharpness, exposure, and noise. Blurry, underexposed, or noisy images are automatically labeled as Bad.</div>
-        </div>
-        <div class="learnmore-faq-col">
-            <div class="learnmore-faq-q"><b>Can IMAHE detect closed eyes in a photo?</b></div>
-            <div class="learnmore-faq-a">
-                Yes! The system uses OpenCV's implementation of Haar Cascade-based Object Detection,
-                If a face is detected but no eyes are found within it, the image is flagged as "Closed Eye." This method was chosen for its high speed on standard CPUs and its minimal dependency footprint.
+<PageTitle>Learn More</PageTitle>
+
+<div class="learn-more-wrapper">
+    <div class="learn-more-container">
+        <div class="header-section">
+            <span class="oi oi-book header-icon"></span>
+            <div>
+                <h1>Learn More</h1>
+                <p class="lead">Discover how Imahe's AI brings intelligent sorting to your photo collection.</p>
             </div>
-            <div class="learnmore-faq-q"><b>How are duplicate photos identified?</b></div>
-            <div class="learnmore-faq-a">IMAHE uses perceptual hashing (pHash) to compare image fingerprints and detect duplicates with high accuracy.</div>
         </div>
-        <div class="learnmore-faq-col">
-            <div class="learnmore-faq-q"><b>Can I adjust the image sorting settings?</b></div>
-            <div class="learnmore-faq-a">Absolutely. Users can customize the minimum and maximum exposure and sharpness using up and down and typable preferred number to fit their preferences.</div>
-            <div class="learnmore-faq-q"><b>Is my photo data safe when using IMAHE?</b></div>
-            <div class="learnmore-faq-a">Yes. IMAHE works completely offline, and no photos are uploaded or shared, ensuring full privacy and data security.</div>
+
+        <div class="accordion" id="faqAccordion">
+
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="headingOne">
+                    <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="true" aria-controls="collapseOne">
+                        <div class="icon-wrapper bg-primary-subtle"><span class="oi oi-info"></span></div>
+                        <strong>What is the IMAHE system?</strong>
+                    </button>
+                </h2>
+                <div id="collapseOne" class="accordion-collapse collapse show" aria-labelledby="headingOne" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body">
+                        Imahe is your personal AI photo assistant! It's designed to work completely offline, right on your computer. Imahe analyzes your photos for quality and content to help you quickly find your best shots and automatically organize them into helpful folders.
+                    </div>
+                </div>
+            </div>
+
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="headingTwo">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
+                        <div class="icon-wrapper bg-info-subtle"><span class="oi oi-magnifying-glass"></span></div>
+                        <strong>How does Imahe detect Blurry vs. Focused photos?</strong>
+                    </button>
+                </h2>
+                <div id="collapseTwo" class="accordion-collapse collapse" aria-labelledby="headingTwo" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body">
+                        Imahe uses a classic computer vision technique to measure sharpness. For every photo, it calculates a "sharpness score":
+                        <ul>
+                            <li>A photo is marked as <strong>'Blurred'</strong> if its main subject's sharpness is below the 'Minimum Sharpness' setting.</li>
+                            <li>A photo is marked as <strong>'Focused'</strong> if it has a very sharp subject that is also significantly sharper than the background, creating a professional depth-of-field effect.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="headingThree">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseThree" aria-expanded="false" aria-controls="collapseThree">
+                        <div class="icon-wrapper bg-danger-subtle"><span class="oi oi-eye"></span></div>
+                        <strong>How does Imahe detect Closed Eyes?</strong>
+                    </button>
+                </h2>
+                <div id="collapseThree" class="accordion-collapse collapse" aria-labelledby="headingThree" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body">
+                        Imahe uses a two-step AI process. First, it finds every face in the photo. Then, for each face, it locates the eyes and measures how open they are. If too many people are blinking (based on the percentage you set in Settings), the photo is flagged as <strong>'Closed Eye'</strong> so you can find a better take.
+                    </div>
+                </div>
+            </div>
+
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="headingFour">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFour" aria-expanded="false" aria-controls="collapseFour">
+                        <div class="icon-wrapper bg-secondary-subtle"><span class="oi oi-layers"></span></div>
+                        <strong>How does Imahe find Duplicate photos?</strong>
+                    </button>
+                </h2>
+                <div id="collapseFour" class="accordion-collapse collapse" aria-labelledby="headingFour" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body">
+                        Imahe creates a unique visual "fingerprint" for every photo in a session. This allows it to find photos that look the same, even if they've been resized or saved with a different name. This helps you clean up burst shots and find the single best version of a photo.
+                    </div>
+                </div>
+            </div>
+
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="headingFive">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFive" aria-expanded="false" aria-controls="collapseFive">
+                        <div class="icon-wrapper bg-success-subtle"><span class="oi oi-wrench"></span></div>
+                        <strong>Can I change how Imahe sorts the photos?</strong>
+                    </button>
+                </h2>
+                <div id="collapseFive" class="accordion-collapse collapse" aria-labelledby="headingFive" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body">
+                        Of course! The <strong>Settings</strong> page is your command center. You can adjust all the parameters to match your personal definition of a "good" photo. Your settings are saved automatically, so Imahe will always remember how you like to work.
+                    </div>
+                </div>
+            </div>
+
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="headingSix">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSix" aria-expanded="false" aria-controls="collapseSix">
+                        <div class="icon-wrapper bg-dark-subtle"><span class="oi oi-lock-locked"></span></div>
+                        <strong>Is my data safe and private?</strong>
+                    </button>
+                </h2>
+                <div id="collapseSix" class="accordion-collapse collapse" aria-labelledby="headingSix" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body">
+                        <strong>Yes, 100%.</strong> Imahe is designed to be a completely offline tool. Your photos are never uploaded to any cloud or server. All analysis happens right on your computer, so your memories always stay private and secure with you.
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
-</div> 
+</div>
+
+<style>
+    .learn-more-wrapper {
+        padding: 2rem 3rem;
+        background-color: #f8f9fa;
+        min-height: 100%;
+    }
+
+    .learn-more-container {
+        max-width: 900px;
+        margin: auto;
+    }
+
+    .header-section {
+        display: flex;
+        align-items: center;
+        margin-bottom: 0.5rem;
+        gap: 1rem;
+    }
+
+    .header-icon {
+        font-size: 2.5rem;
+        color: #495057;
+    }
+
+    .learn-more-container h1 {
+        margin-bottom: 0;
+    }
+
+    .learn-more-container .lead {
+        color: #6c757d;
+        margin-top: 0;
+        margin-bottom: 2.5rem;
+    }
+
+    .accordion-item {
+        background-color: #fff;
+        border: 1px solid #dee2e6;
+        margin-bottom: 1rem;
+        border-radius: 0.75rem !important;
+        overflow: hidden;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+
+    .accordion-header {
+        margin-bottom: 0;
+    }
+
+    .accordion-button {
+        font-size: 1.1rem;
+        padding: 1.25rem 1.5rem;
+        background-color: #fff;
+        color: #212529;
+        box-shadow: none;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+        .accordion-button:not(.collapsed) {
+            background-color: #e7f1ff;
+            color: #052c65;
+        }
+
+        .accordion-button:focus {
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+        }
+
+    .accordion-body {
+        padding: 1.5rem;
+        line-height: 1.7;
+    }
+
+        .accordion-body ul {
+            padding-left: 1.5rem;
+            margin-top: 1rem;
+        }
+
+    .icon-wrapper {
+        flex-shrink: 0;
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+        .icon-wrapper .oi {
+            font-size: 1.25rem;
+        }
+</style>

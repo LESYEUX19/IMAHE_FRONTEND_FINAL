@@ -1,139 +1,288 @@
 ﻿@page "/settings"
+@using System.Text
 @using System.Text.Json
 @using System.Text.Json.Serialization
 @inject HttpClient Http
+@inject IJSRuntime JSRuntime
 
-<div class="settings-container">
-    <h3>Classification Settings</h3>
+<PageTitle>Settings</PageTitle>
 
-    @if (isLoading)
-    {
-        <div class="loading-message">
-            <div class="spinner"></div>
-            <span>Loading settings...</span>
+<div class="settings-page-wrapper">
+    <div class="settings-container">
+        <div class="header-section">
+            <span class="oi oi-cog header-icon"></span>
+            <div>
+                <h1>Classification Settings</h1>
+                <p class="lead">Fine-tune the AI's sensitivity to get the perfect sorting results for your photos.</p>
+            </div>
         </div>
-    }
 
-    @if (!string.IsNullOrEmpty(errorMessage))
-    {
-        <div class="alert alert-danger">
-            <strong>Error:</strong> @errorMessage
-            <button @onclick="ClearError" class="close-btn">&times;</button>
-        </div>
-    }
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger" role="alert">@errorMessage</div>
+        }
 
-    @if (!string.IsNullOrEmpty(successMessage))
-    {
-        <div class="alert alert-success">
-            <strong>Success:</strong> @successMessage
-            <button @onclick="ClearSuccess" class="close-btn">&times;</button>
-        </div>
-    }
+        @if (settingsModel == null)
+        {
+            <div class="text-center mt-5"><div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status"></div><p class="mt-2"><em>Loading your settings...</em></p></div>
+        }
+        else
+        {
+            <div class="settings-grid">
+                <div class="settings-card">
+                    <div class="card-header"><span class="oi oi-image me-2"></span>Image Quality</div>
+                    <div class="card-body">
+                        <div class="setting-item">
+                            <div class="icon-wrapper"><span class="oi oi-moon"></span></div>
+                            <div>
+                                <label for="minExposure" class="form-label">Minimum Exposure</label>
+                                <input id="minExposure" type="number" class="form-control" @bind="settingsModel.MinExposure" />
+                                <div class="form-text">Flags photos that are too dark. <strong>Recommended: 50</strong></div>
+                            </div>
+                        </div>
+                        <div class="setting-item">
+                            <div class="icon-wrapper"><span class="oi oi-sun"></span></div>
+                            <div>
+                                <label for="maxExposure" class="form-label">Maximum Exposure</label>
+                                <input id="maxExposure" type="number" class="form-control" @bind="settingsModel.MaxExposure" />
+                                <div class="form-text">Flags photos that are too bright. <strong>Recommended: 200</strong></div>
+                            </div>
+                        </div>
+                        <div class="setting-item">
+                            <div class="icon-wrapper"><span class="oi oi-magnifying-glass"></span></div>
+                            <div>
+                                <label for="minSharpness" class="form-label">Minimum Sharpness</label>
+                                <input id="minSharpness" type="number" class="form-control" @bind="settingsModel.MinSharpness" />
+                                <div class="form-text">Flags photos where the main subject is blurry. <strong>Recommended: 100</strong></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-    @if (settings != null)
-    {
-        <div class="settings-form">
-            <div class="settings-info">
-                <h4>📊 Image Quality Parameters</h4>
-                <p>Configure the thresholds for image classification. These settings determine what constitutes a "good" vs "bad" image.</p>
+                <div class="settings-card">
+                    <div class="card-header"><span class="oi oi-people me-2"></span>Face & Focus Analysis</div>
+                    <div class="card-body">
+                        <div class="setting-item">
+                            <div class="icon-wrapper"><span class="oi oi-star"></span></div>
+                            <div>
+                                <label for="verySharpThreshold" class="form-label">"Very Sharp" Threshold</label>
+                                <input id="verySharpThreshold" type="number" class="form-control" @bind="settingsModel.VerySharpThreshold" />
+                                <div class="form-text">A subject must be sharper than this to be "Focused". <strong>Recommended: 250</strong></div>
+                            </div>
+                        </div>
+                        <div class="setting-item">
+                            <div class="icon-wrapper"><span class="oi oi-fullscreen-exit"></span></div>
+                            <div>
+                                <label for="focusedRatio" class="form-label">Focus Ratio</label>
+                                <input id="focusedRatio" type="number" step="0.1" class="form-control" @bind="settingsModel.FocusedRatio" />
+                                <div class="form-text">How much sharper a subject must be than the background. <strong>Recommended: 1.75</strong></div>
+                            </div>
+                        </div>
+                        <div class="setting-item">
+                            <div class="icon-wrapper"><span class="oi oi-eye"></span></div>
+                            <div>
+                                <label for="closedEyePercentage" class="form-label">Closed Eye Tolerance</label>
+                                <input id="closedEyePercentage" type="number" step="0.1" max="1" min="0" class="form-control" @bind="settingsModel.ClosedEyePercentage" />
+                                <div class="form-text">Flags photos if this percentage of people are blinking (0.5 = 50%). <strong>Recommended: 0.5</strong></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <EditForm Model="@settings" OnValidSubmit="UpdateSettings">
-                <div class="settings-grid">
-                    <div class="form-group">
-                        <label for="minExposure">
-                            <span class="label-icon">🌅</span>
-                            Minimum Exposure
-                        </label>
-                        <InputNumber id="minExposure" @bind-Value="settings.MinExposure" class="form-control" step="0.1" />
-                        <small class="form-text">
-                            <strong>Range:</strong> 0.0 - 255.0 | <strong>Recommended:</strong> 50.0 - 100.0<br />
-                            Sets the lowest acceptable exposure value.
-                            Images with exposure below this threshold are classified as bad (too dark).
-                            Lower bound for acceptable exposure values. Images with exposure below this threshold will be classified as "bad".
-                        </small>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="maxExposure">
-                            <span class="label-icon">☀️</span>
-                            Maximum Exposure
-                        </label>
-                        <InputNumber id="maxExposure" @bind-Value="settings.MaxExposure" class="form-control" step="0.1" />
-                        <small class="form-text">
-                            <strong>Range:</strong> 0.0 - 255.0 | <strong>Recommended:</strong> 150.0 - 200.0<br />
-                            Sets the highest acceptable exposure value.
-                            Images with exposure above this threshold are classified as bad (too bright).
-                            Upper bound for acceptable exposure values. Images with exposure above this threshold will be classified as "bad".
-                        </small>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="minSharpness">
-                            <span class="label-icon">🔍</span>
-                            Minimum Sharpness
-                        </label>
-                        <InputNumber id="minSharpness" @bind-Value="settings.MinSharpness" class="form-control" step="0.1" />
-                        <small class="form-text">
-                            <strong>Range:</strong> 0.0 - 1000.0 | <strong>Recommended:</strong> 100.0 - 300.0<br />
-                            Defines the minimum sharpness level for acceptable image quality.
-                            Images with sharpness below this value are considered blurry or low-quality.
-                            Minimum sharpness threshold for image quality. Images with sharpness below this threshold will be classified as "bad".
-                        </small>
-                    </div>
+            <div class="settings-card summary-card">
+                <div class="card-header"><span class="oi oi-task me-2"></span>Your AI Assistant's Instructions</div>
+                <div class="card-body summary-body">
+                    <p>With these settings, here is my current sorting strategy:</p>
+                    @GetSettingsSummary()
                 </div>
-
-                <div class="settings-preview">
-                    <h5>📋 Current Settings Summary</h5>
-                    <p>Displays a quick overview of the active thresholds for exposure and sharpness.</p>
-                    <div class="preview-grid">
-                        <div class="preview-item">
-                            <span class="preview-label">Exposure Range:</span>
-                            <span class="preview-value">@settings.MinExposure - @settings.MaxExposure</span>
-                        </div>
-                        <div class="preview-item">
-                            <span class="preview-label">Min Sharpness:</span>
-                            <span class="preview-value">@settings.MinSharpness</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="form-actions">
-                    <button type="submit" class="btn btn-primary" disabled="@isUpdating">
-                        @if (isUpdating)
+                <div class="card-footer">
+                    <button class="btn btn-outline-secondary me-auto" @onclick="ResetToDefault"><span class="oi oi-reload me-1"></span>Reset to Recommended</button>
+                    <button class="btn btn-success" @onclick="SaveChanges" disabled="@isSaving">
+                        @if (isSaving)
                         {
-                            <span class="spinner-sm"></span>
-                            <span>Updating...</span>
-                        }
+                            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                            <span class="ms-1">Saving...</span>
+    }
                         else
                         {
-                            <span>
-                                💾 Update Settings
-                                <p>Applies the newly entered threshold values.</p>
-                            </span>
-
-                        }
-                    </button>
-                    <button type="button" class="btn btn-secondary" @onclick="LoadSettings" disabled="@isLoading">
-                        🔄 Refresh
-                        <p>Reloads the current settings without saving changes.</p>
-                    </button>
-                    <button type="button" class="btn btn-outline-info" @onclick="ResetToDefaults">
-                        ⚙️ Reset to Defaults
-                        <p>Restores all thresholds to their recommended default values.</p>
+                            <span class="oi oi-check"></span>
+                            <span> Save Changes</span>
+    }
                     </button>
                 </div>
-            </EditForm>
-        </div>
-    }
+            </div>
+        }
+    </div>
 </div>
 
+<style>
+    .settings-page-wrapper {
+        padding: 2rem 3rem;
+        background-color: #f8f9fa;
+        min-height: 100%;
+    }
+
+    .settings-container {
+        max-width: 900px;
+        margin: auto;
+    }
+
+    .header-section {
+        display: flex;
+        align-items: center;
+        margin-bottom: 0.5rem;
+        gap: 1rem;
+    }
+
+    .header-icon {
+        font-size: 2.5rem;
+        color: #495057;
+    }
+
+    .settings-container h1 {
+        margin-bottom: 0;
+    }
+
+    .settings-container .lead {
+        color: #6c757d;
+        margin-top: 0;
+        margin-bottom: 2.5rem;
+    }
+
+    .settings-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2rem;
+        margin-bottom: 2rem;
+    }
+
+    .settings-card {
+        background-color: #ffffff;
+        border: 1px solid #dee2e6;
+        border-radius: 0.75rem;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        display: flex;
+        flex-direction: column;
+    }
+
+    .card-header {
+        font-weight: 600;
+        font-size: 1.1rem;
+        padding: 1rem 1.5rem;
+        background-color: #fdfdff;
+        border-bottom: 1px solid #dee2e6;
+        display: flex;
+        align-items: center;
+    }
+
+    .card-body {
+        padding: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1.75rem;
+    }
+
+    .card-footer {
+        margin-top: auto;
+        padding: 1rem 1.5rem;
+        background-color: #f8f9fa;
+        border-top: 1px solid #dee2e6;
+        display: flex;
+        justify-content: flex-end;
+    }
+
+    .setting-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+
+    .icon-wrapper {
+        flex-shrink: 0;
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #e9ecef;
+    }
+
+        .icon-wrapper .oi {
+            font-size: 1.25rem;
+            color: #495057;
+        }
+
+    .setting-item > div {
+        flex-grow: 1;
+    }
+
+    .setting-item .form-label {
+        font-weight: 500;
+        margin-bottom: 0.25rem;
+    }
+
+    .summary-card {
+        grid-column: 1 / -1;
+    }
+
+    .summary-body ul {
+        list-style-type: none;
+        padding-left: 0;
+        margin-bottom: 0;
+    }
+
+    .summary-body li {
+        display: flex;
+        align-items: flex-start;
+        gap: 1rem;
+        padding: 0.75rem 0;
+    }
+
+        .summary-body li:not(:last-child) {
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+    .summary-body .oi {
+        font-size: 1.1rem;
+        margin-top: 0.2rem;
+    }
+
+    .rec-level {
+        font-size: 0.75rem;
+        font-weight: 600;
+        padding: 0.2rem 0.5rem;
+        border-radius: 1rem;
+        color: #495057;
+    }
+
+    .rec-balanced {
+        background-color: #d1e7dd;
+        color: #0f5132;
+    }
+
+    .rec-relaxed {
+        background-color: #cce5ff;
+        color: #052c65;
+    }
+
+    .rec-strict {
+        background-color: #f8d7da;
+        color: #58151c;
+    }
+
+    @@media (max-width: 768px) {
+        .settings-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
 @code {
-    private SettingsModel? settings;
-    private bool isLoading = true;
-    private bool isUpdating = false;
-    private string errorMessage = "";
-    private string successMessage = "";
+    private SettingsModel? settingsModel;
+    private string? errorMessage;
+    private bool isSaving = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -142,133 +291,90 @@
 
     private async Task LoadSettings()
     {
-        isLoading = true;
-        errorMessage = "";
-        successMessage = "";
-
         try
         {
-            settings = await Http.GetFromJsonAsync<SettingsModel>("http://localhost:8000/settings/");
+            settingsModel = await Http.GetFromJsonAsync<SettingsModel>("http://localhost:8000/settings");
         }
         catch (Exception ex)
         {
             errorMessage = $"Failed to load settings: {ex.Message}";
         }
-        finally
-        {
-            isLoading = false;
-        }
     }
 
-    private async Task UpdateSettings()
+    private async Task SaveChanges()
     {
-        if (settings == null) return;
-
-        // Validate settings before sending
-        if (settings.MinExposure >= settings.MaxExposure)
-        {
-            errorMessage = "Minimum exposure must be less than maximum exposure.";
-            return;
-        }
-
-        if (settings.MinSharpness <= 0)
-        {
-            errorMessage = "Minimum sharpness must be greater than 0.";
-            return;
-        }
-
-        isUpdating = true;
-        errorMessage = "";
-        successMessage = "";
-
+        if (settingsModel == null) return;
+        isSaving = true;
+        errorMessage = null;
         try
         {
-            var response = await Http.PostAsJsonAsync("http://localhost:8000/settings/", settings);
-
+            // We need to send ALL the properties back to the backend, including the float values
+            var response = await Http.PostAsJsonAsync("http://localhost:8000/settings", settingsModel);
             if (response.IsSuccessStatusCode)
             {
-                successMessage = "Settings updated successfully!";
-                // Reload settings to get the updated values from server
-                await LoadSettings();
+                await JSRuntime.InvokeVoidAsync("alert", "Settings saved successfully!");
             }
             else
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
-
-                // Try to parse the error response for better user experience
-                try
-                {
-                    var errorJson = JsonSerializer.Deserialize<JsonElement>(errorContent);
-                    if (errorJson.TryGetProperty("detail", out var detail))
-                    {
-                        if (detail.ValueKind == JsonValueKind.Array)
-                        {
-                            var errors = new List<string>();
-                            foreach (var error in detail.EnumerateArray())
-                            {
-                                if (error.TryGetProperty("msg", out var msg))
-                                {
-                                    errors.Add(msg.GetString() ?? "Unknown error");
-                                }
-                            }
-                            errorMessage = $"Validation errors: {string.Join(", ", errors)}";
-                        }
-                        else
-                        {
-                            errorMessage = $"Server error: {detail.GetString() ?? errorContent}";
-                        }
-                    }
-                    else
-                    {
-                        errorMessage = $"Update failed: {response.StatusCode} - {errorContent}";
-                    }
-                }
-                catch
-                {
-                    errorMessage = $"Update failed: {response.StatusCode} - {errorContent}";
-                }
+                errorMessage = $"Failed to save settings: {errorContent}";
             }
         }
         catch (Exception ex)
         {
-            errorMessage = $"Error updating settings: {ex.Message}";
+            errorMessage = $"An error occurred: {ex.Message}";
         }
         finally
         {
-            isUpdating = false;
+            isSaving = false;
         }
     }
 
-    private void ClearError()
+    private async Task ResetToDefault()
     {
-        errorMessage = "";
-    }
-
-    private void ClearSuccess()
-    {
-        successMessage = "";
-    }
-
-    private void ResetToDefaults()
-    {
-        if (settings != null)
+        bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to reset all settings to their recommended defaults?");
+        if (confirmed && settingsModel != null)
         {
-            settings.MinExposure = 50.0f;
-            settings.MaxExposure = 200.0f;
-            settings.MinSharpness = 100.0f;
-            StateHasChanged();
+            // Reset to hardcoded recommended defaults (matching DEFAULT_SETTINGS in main.py)
+            settingsModel = new SettingsModel
+            {
+                MinExposure = 50,
+                MaxExposure = 200,
+                MinSharpness = 100,
+                VerySharpThreshold = 250,
+                FocusedRatio = 1.75f,
+                ClosedEyePercentage = 0.5f,
+                EyeAspectRatio = 0.25f
+            };
+            await SaveChanges();
         }
     }
 
+    private MarkupString GetSettingsSummary()
+    {
+        if (settingsModel == null) return new MarkupString("");
+
+        var summary = new StringBuilder("<ul>");
+
+        // Fixed the summary items to correctly reference the settings model properties
+        summary.Append($"<li><span class='oi oi-ban text-danger'></span><div>I will flag photos that are too dark (below <strong>{settingsModel.MinExposure:F0}</strong>) or too bright (above <strong>{settingsModel.MaxExposure:F0}</strong>).</div></li>");
+        summary.Append($"<li><span class='oi oi-ban text-danger'></span><div>I will flag a photo as 'Blurred' if its sharpest subject is below <strong>{settingsModel.MinSharpness:F0}</strong>.</div></li>");
+        summary.Append($"<li><span class='oi oi-thumb-up text-success'></span><div>I will look for 'Focused' shots where the subject is sharper than <strong>{settingsModel.VerySharpThreshold:F0}</strong> and <strong>{settingsModel.FocusedRatio:F2}x</strong> sharper than the background.</div></li>");
+        summary.Append($"<li><span class='oi oi-ban text-danger'></span><div>I will flag a group photo if <strong>{(settingsModel.ClosedEyePercentage * 100):F0}%</strong> or more of the people are blinking.</div></li>");
+
+        summary.Append("</ul>");
+        return new MarkupString(summary.ToString());
+    }
+
+    // --- C# Models to match the Backend (main.py) ---
     public class SettingsModel
     {
-        [JsonPropertyName("min_exposure")]
-        public float MinExposure { get; set; }
-
-        [JsonPropertyName("max_exposure")]
-        public float MaxExposure { get; set; }
-
-        [JsonPropertyName("min_sharpness")]
-        public float MinSharpness { get; set; }
+        [JsonPropertyName("min_exposure")] public float MinExposure { get; set; }
+        [JsonPropertyName("max_exposure")] public float MaxExposure { get; set; }
+        [JsonPropertyName("min_sharpness")] public float MinSharpness { get; set; }
+        [JsonPropertyName("focused_ratio")] public float FocusedRatio { get; set; }
+        [JsonPropertyName("very_sharp_threshold")] public float VerySharpThreshold { get; set; }
+        [JsonPropertyName("eye_aspect_ratio")] public float EyeAspectRatio { get; set; }
+        [JsonPropertyName("closed_eye_percentage")] public float ClosedEyePercentage { get; set; }
     }
 }
