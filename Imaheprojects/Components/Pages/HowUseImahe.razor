@@ -1,44 +1,168 @@
 @page "/howuseimahe"
 
-<div class="howuse-container">
-    <div class="howuse-header">
-        <div class="howuse-title">I M A H E</div>
-        <div class="howuse-sub">GUIDE HOW TO USE IMAHE PHOTO SORTING SYSTEM</div>
-        <div class="howuse-desc">where every image finds its place...</div>
-    </div>
+<PageTitle>How to Use Imahe</PageTitle>
 
-    <div class="howuse-section">
-        <button class="howuse-main-btn"><b>NOTE:</b> MAKE FOLDERS (INPUT AND OUTPUT FOLDER)
-            <div><b>•IF AN IMAGE IS DETECTED TO EXCEED 1GB, IT WILL BE EXCLUDED FROM THE OUTPUT/RESULT FOLDER.</b></div>
-            <div></div>
-            <div style="color: red; font-weight: bold; text-align: center; margin: 15px 0;">W A R N I N G !!!</div>
-            <div></div>
-            <div><b>•PLEASE DO NOT LEAVE THE SORTING PAGE ONCE PROCESSING HAS STARTED, AS IT WILL CANCEL THE SORTING.</b></div>
-           </button>
-        <div class="howuse-step">
-            <div class="howuse-step-icon">📁</div>
-            <div class="howuse-step-content">
-                Input/Paste the images in <b>INPUT FOLDER.</b> that you want to be sorted.
+<div class="how-to-use-wrapper">
+    <div class="how-to-use-container">
+        <div class="header-section">
+            <span class="oi oi-book header-icon"></span>
+            <div>
+                <h1>How to Use Imahe</h1>
+                <p class="lead">Follow these simple steps to get your photos sorted in minutes.</p>
+            </div>
+        </div>
+
+        <!-- Important Notes Section -->
+        <div class="alert alert-info d-flex align-items-center" role="alert">
+            <span class="oi oi-lightbulb me-3" style="font-size: 1.5rem;"></span>
+            <div>
+                <h5 class="alert-heading">A Quick Heads-Up!</h5>
+                <ul>
+                    <li>For the best results, create two empty folders on your computer: one named <strong>INPUT</strong> and one named <strong>OUTPUT</strong>.</li>
+                    <li>Please stay on the Sorting page while Imahe is processing your photos to ensure the process completes successfully.</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Step-by-Step Guide -->
+        <div class="steps-container">
+            <div class="step-card">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <h3>Gather Your Photos</h3>
+                    <p>
+                        Copy all the photos you want to sort into your <strong>INPUT</strong> folder. Don't worry about duplicates or bad shots – that's what Imahe is for!
+                    </p>
+                </div>
+            </div>
+
+            <div class="step-card">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <h3>Set Your Preferences (Optional)</h3>
+                    <p>
+                        Navigate to the <strong>Settings</strong> page. Here, you can tell Imahe exactly how picky you want it to be about brightness and sharpness. The recommended defaults are a great starting point!
+                    </p>
+                </div>
+            </div>
+
+            <div class="step-card">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                    <h3>Start Sorting</h3>
+                    <p>
+                        Go to the <strong>Sort</strong> page. Click the "Choose Input Folder" and "Choose Output Folder" buttons to select the folders you prepared in Step 1. Once selected, click the <strong>Start Processing</strong> button and let the AI work its magic!
+                    </p>
+                </div>
+            </div>
+
+            <div class="step-card">
+                <div class="step-number">4</div>
+                <div class="step-content">
+                    <h3>View Your Results</h3>
+                    <p>
+                        Once processing is complete, you can either click the <strong>View Results</strong> button to open your <strong>OUTPUT</strong> folder, or check the <strong>History</strong> page to see a detailed breakdown of the entire session. It's that simple!
+                    </p>
+                </div>
             </div>
         </div>
     </div>
+</div>
 
-    <div class="howuse-section">
-        <div class="howuse-step">
-            <div class="howuse-step-icon">⚙️</div>
-            <div class="howuse-step-content">
-                <b>OPEN THE IMAHE SYSTEM APP, PROCEED TO <b>SETTINGS,</b> and set your preffered setting of your images. </b> After that, Press <b>UPDATE SETTINGS.</b>  
-                <b>PRESS THE IMAHE BUTTON, AND PRESS SORT NOW.</b> Next, Browse your <b>INPUT</b> and <b>OUTPUT</b> folder. Finally you can now press <b>START PROCESSING.</b>
-            </div>
-        </div>
-    </div>
 
-    <div class="howuse-section">
-        <div class="howuse-step">
-            <div class="howuse-step-icon">✅</div>
-            <div class="howuse-step-content">
-                After processing, open the <b>OUTPUT FOLDER</b> for the results OR Press the View Results Button.
-            </div>
-        </div>
-    </div>
-</div> 
+<style>
+    .how-to-use-wrapper {
+        padding: 2rem 3rem;
+        background-color: #f8f9fa;
+        min-height: 100%;
+    }
+
+    .how-to-use-container {
+        max-width: 900px;
+        margin: auto;
+    }
+
+    .header-section {
+        display: flex;
+        align-items: center;
+        margin-bottom: 0.5rem;
+        gap: 1rem;
+    }
+
+    .header-icon {
+        font-size: 2.5rem;
+        color: #495057;
+    }
+
+    .how-to-use-container h1 {
+        margin-bottom: 0;
+    }
+
+    .how-to-use-container .lead {
+        color: #6c757d;
+        margin-top: 0;
+        margin-bottom: 2.5rem;
+    }
+
+    .alert ul {
+        margin-bottom: 0;
+        padding-left: 1.2rem;
+    }
+
+    .steps-container {
+        margin-top: 3rem;
+        position: relative;
+        /* The timeline bar */
+    }
+
+        .steps-container::before {
+            content: '';
+            position: absolute;
+            left: 35px;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background-color: #dee2e6;
+            border-radius: 2px;
+        }
+
+    .step-card {
+        position: relative;
+        margin-left: 80px;
+        margin-bottom: 2rem;
+        padding: 1.5rem 2rem;
+        background-color: #ffffff;
+        border: 1px solid #dee2e6;
+        border-radius: 0.75rem;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+
+    .step-number {
+        position: absolute;
+        left: -45px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background-color: #0d6efd;
+        color: white;
+        font-size: 1.5rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 4px solid #f8f9fa;
+    }
+
+    .step-content h3 {
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+
+    .step-content p {
+        line-height: 1.7;
+        color: #495057;
+        margin-bottom: 0;
+    }
+</style>

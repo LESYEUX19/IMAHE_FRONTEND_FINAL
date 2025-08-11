@@ -1,51 +1,192 @@
 @page "/about"
 
-<div class="about-container">
-    <div class="about-main-col">
-        <h1 class="about-title">ABOUT US</h1>
-        <div class="about-tagline">where every image finds its place...</div>
-        <div class="about-imahe"><i>I&nbsp;M&nbsp;A&nbsp;H&nbsp;E</i></div>
-        <div class="about-quote">
-            "Imahe's goal is to help photographers and people who often edit pictures, to lessen the time of editing and separating photos especially in different events with the use of AI and without causing data breaches"
-        </div>
-    </div>
-    <div class="about-features-col">
-        <div class="about-feature-row">
-            <div class="about-feature-icon">&#128172;</div>
-            <div class="about-feature-desc"><b>To differentiate good, bad, duplicate and closed eye photos.</b></div>
-        </div>
-        <div class="about-feature-row">
-            <div class="about-feature-icon">&#10133;</div>
-            <div class="about-feature-desc"><b>To save time for users, especially for photographers for sorting different photos.</b></div>
-        </div>
-        <div class="about-feature-row">
-            <div class="about-feature-icon">&#128247;</div>
-            <div class="about-feature-desc"><b>To improve the visual appearance and to easily organize different photos.</b></div>
+<PageTitle>About Imahe</PageTitle>
+
+<div class="about-page-wrapper">
+    <div class="about-container">
+        <!-- Main Grid Layout -->
+        <div class="about-grid">
+
+            <!-- Left Column: Mission & Features -->
+            <div class="info-column">
+                <div class="info-card">
+                    <div class="info-icon blue"><span class="oi oi-pulse"></span></div>
+                    <h2>Our Mission</h2>
+                    <p class="info-text">
+                        Imahe's goal is to help photographers and enthusiasts save countless hours by automating the tedious task of sorting photos. We use AI to intelligently find your best shots, so you can spend less time organizing and more time creating, all while ensuring your data remains completely private.
+                    </p>
+                </div>
+                <div class="info-card">
+                    <div class="info-icon green"><span class="oi oi-fork"></span></div>
+                    <h5>Intelligent Sorting</h5>
+                    <p>Automatically classify photos as Good, Focused, Blurred, Closed Eye, and Duplicate.</p>
+                </div>
+                <div class="info-card">
+                    <div class="info-icon orange"><span class="oi oi-timer"></span></div>
+                    <h5>Save Time</h5>
+                    <p>Dramatically reduce the time it takes to cull photos after events, trips, or photoshoots.</p>
+                </div>
+                <div class="info-card">
+                    <div class="info-icon dark"><span class="oi oi-lock-locked"></span></div>
+                    <h5>Offline & Private</h5>
+                    <p>Your photos are never uploaded. All processing happens securely on your local machine.</p>
+                </div>
+            </div>
+
+            <!-- Right Column: Developers -->
+            <div class="developers-column">
+                <h2>Meet the Developers</h2>
+                <div class="developer-card">
+                    <img src="/Assets/developer/Kristina.jpg" alt="Kristina Cassandra C. Pescador" class="developer-img" />
+                    <div class="developer-details">
+                        <div class="developer-name">Kristina Cassandra C. Pescador</div>
+                        <div class="developer-role">4th Year Computer Science students from AMACC Cabanatuan.</div>
+                    </div>
+                </div>
+                <div class="developer-card">
+                    <img src="/Assets/developer/Christopher.jpg" alt="Christopher Gail C. Martin" class="developer-img" />
+                    <div class="developer-details">
+                        <div class="developer-name">Christopher Gail P. Martin</div>
+                        <div class="developer-role">4th Year Computer Science students from AMACC Cabanatuan.</div>
+                    </div>
+                </div>
+                <div class="developer-card">
+                    <img src="/Assets/developer/Kurt.jpg" alt="Kurt Dhaeniel Q. Laborera" class="developer-img" />
+                    <div class="developer-details">
+                        <div class="developer-name">Kurt Dhaeniel Q. Laborera</div>
+                        <div class="developer-role">4th Year Computer Science students from AMACC Cabanatuan.</div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
 
-<div class="developer-container">
-    <div class="developer-tagline">where every image finds its place...</div>
-    <div class="developer-imahe"><b><i>I&nbsp;M&nbsp;A&nbsp;H&nbsp;E</i></b></div>
-    <div class="developer-title"><i>OUR DEVELOPERS</i></div>
-    <div class="developer-links">
-    </div>
-    <div class="developer-cards-row">
-        <div class="developer-card">
-            <img src="/Assets/developer/Kristina.jpg" alt="Kristina Cassandra C. Pescador" class="developer-img" />
-            <div class="developer-name">KRISTINA CASSANDRA C.<br />PESCADOR</div>
-            <div class="developer-desc">A student from AMACC Cabanatuan branch, currently 4th year College taking undergraduate degree of Bachelor of Science in Computer Science.</div>
-        </div>
-        <div class="developer-card">
-            <img src="/Assets/developer/Christopher.jpg" alt="Christopher Gail C. Martin" class="developer-img" />
-            <div class="developer-name">CHRISTOPHER GAIL C. MARTIN</div>
-            <div class="developer-desc">A student from AMACC Cabanatuan branch, currently 4th year College taking undergraduate degree of Bachelor of Science in Computer Science.</div>
-        </div>
-        <div class="developer-card">
-            <img src="/Assets/developer/Kurt.jpg" alt="Kurt Dhaeniel Q. Laborera" class="developer-img" />
-            <div class="developer-name">KURT DHAENIEL Q. LABORERA</div>
-            <div class="developer-desc">A student from AMACC Cabanatuan branch, currently 4th year College taking undergraduate degree of Bachelor of Science in Computer Science.</div>
-        </div>
-    </div>
-</div> 
+<style>
+    .about-page-wrapper {
+        padding: 3rem 2rem;
+        background-color: #f8f9fa;
+        min-height: 100%;
+    }
+
+    .about-container {
+        max-width: 1100px;
+        margin: auto;
+    }
+
+    /* Grid Layout */
+    .about-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 3rem;
+        align-items: flex-start;
+    }
+
+    .grid-column h2 {
+        font-weight: 600;
+        margin-bottom: 2rem;
+        text-align: center;
+    }
+
+    /* Info Column (Mission & Features) */
+    .info-column {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    .info-card {
+        background-color: #ffffff;
+        padding: 2rem;
+        border-radius: 0.75rem;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        text-align: center;
+    }
+
+    .info-icon {
+        font-size: 2rem;
+        margin-bottom: 1rem;
+    }
+
+        .info-icon.blue {
+            color: #0d6efd;
+        }
+
+        .info-icon.green {
+            color: #198754;
+        }
+
+        .info-icon.orange {
+            color: #fd7e14;
+        }
+
+        .info-icon.dark {
+            color: #212529;
+        }
+
+    .info-text {
+        font-size: 1rem;
+        line-height: 1.7;
+        color: #495057;
+    }
+
+    .info-card h5 {
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+
+    .info-card p {
+        color: #6c757d;
+        font-size: 0.95rem;
+        margin-bottom: 0;
+    }
+
+    /* Developers Column */
+    .developers-column {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    .developer-card {
+        background-color: #fff;
+        border-radius: 0.75rem;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        padding: 1.5rem;
+        text-align: center;
+    }
+
+    .developer-img {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        object-fit: cover;
+        margin-bottom: 1rem;
+        border: 4px solid #fff;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+
+    .developer-name {
+        font-weight: 600;
+        font-size: 1.1rem;
+    }
+
+    .developer-role {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+
+    .school-info {
+        text-align: center;
+        color: #6c757d;
+        font-size: 0.9rem;
+        margin-top: 1rem;
+    }
+
+    /* Responsive Design for smaller screens */
+    @@media (max-width: 992px) {
+        .about-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
