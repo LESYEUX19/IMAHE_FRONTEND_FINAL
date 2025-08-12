@@ -19,15 +19,17 @@
             <div class="filter-controls">
                 <span class="filter-label">Filter by:</span>
                 <div class="btn-group" role="group">
-                    @foreach (var filter in classificationFilters.Where(f => f != "Bad"))
+
+                    @* --- THE FIX IS HERE: The .Where() clause has been removed to show ALL filters --- *@
+                    @foreach (var filter in classificationFilters)
                     {
                         <button class="btn btn-outline-primary @(currentFilter == filter ? "active" : "")" @onclick="() => ApplyFilter(filter)">
                             @filter
                         </button>
                     }
+
                 </div>
             </div>
-
             <div class="history-scroll-container">
                 @if (isLoading)
                 {
@@ -60,18 +62,6 @@
                                     <span class="badge bg-secondary ms-3">@sessionGroup.Count()</span>
                                 </div>
                                 <div class="header-actions">
-                                    <button class="btn btn-sm btn-outline-success save-all-btn" @onclick="(e) => SaveSessionToFolder(e, sessionGroup)" @onclick:stopPropagation="true" disabled="@isZippingState.GetValueOrDefault(sessionGroup.Key, false)">
-                                        @if (isZippingState.GetValueOrDefault(sessionGroup.Key, false))
-                                        {
-                                            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                                            <span class="ms-1">Zipping...</span>
-                                        }
-                                        else
-                                        {
-                                            <span class="oi oi-folder" aria-hidden="true"></span>
-                                            <span class="ms-1">Save All...</span>
-                                        }
-                                    </button>
                                     <button class="btn btn-sm btn-outline-secondary toggle-btn" @onclick="() => ToggleGroup(sessionGroup.Key)" @onclick:stopPropagation="true">@(isExpanded ? "Minimize" : "Expand")</button>
                                 </div>
                             </div>
@@ -99,7 +89,6 @@
                                                         <div>@((MarkupString)entry.DetailsMessage)</div>
                                                     }
 
-                                                    <!-- THE FIX IS HERE -->
                                                     @if (entry.Label != "Closed Eye")
                                                     {
                                                         @if (entry.Sharpness.HasValue)
@@ -112,10 +101,6 @@
                                                         }
                                                     }
                                                 </div>
-
-                                                <button class="btn btn-sm btn-outline-success save-btn" @onclick="() => SaveImageToFolder(entry)">
-                                                    <span class="oi oi-data-transfer-download" aria-hidden="true"></span> Save to Folder...
-                                                </button>
                                             </div>
                                         </div>
                                     }
@@ -128,8 +113,8 @@
         </div>
     </div>
 </div>
+
 <style>
-    /* STYLES ARE UNCHANGED */
     .history-group-header {
         align-items: center;
     }
@@ -139,17 +124,8 @@
         gap: 0.5rem;
     }
 
-    .save-all-btn {
-        width: 110px;
-    }
-
     .toggle-btn {
         width: 90px;
-    }
-
-    .save-btn {
-        width: 100%;
-        margin-top: auto;
     }
 
     .history-card-body {
@@ -380,7 +356,7 @@
         background-color: #198754;
     }
 
-    .badge-bad, .badge-blurred {
+    .badge-poor-quality, .badge-blurred {
         background-color: #dc3545;
     }
 
@@ -413,13 +389,11 @@
     private List<HistoryEntry>? allHistoryEntries;
     private IEnumerable<IGrouping<string, HistoryEntry>>? filteredAndGroupedHistory;
     private Dictionary<string, bool> groupToggleState = new();
-    private Dictionary<string, bool> isZippingState = new();
     private bool isLoading = true;
     private string currentFilter = "All";
-    private readonly string[] classificationFilters = { "All", "Good", "Focused", "Blurred", "Closed Eye", "Bad", "Duplicate" };
 
-    private async Task SaveImageToFolder(HistoryEntry entry) { try { var imageUrl = $"http://localhost:8000/{entry.Path}"; var imageBytes = await Http.GetByteArrayAsync(imageUrl); await JSRuntime.InvokeVoidAsync("triggerFileDownload", entry.FileName, imageBytes); } catch (Exception ex) { Logger.LogError(ex, "Failed to save image {FileName}", entry.FileName); await JSRuntime.InvokeVoidAsync("alert", $"Could not save '{entry.FileName}'. Please check the console for errors."); } }
-    private async Task SaveSessionToFolder(MouseEventArgs e, IGrouping<string, HistoryEntry> sessionGroup) { var sessionId = sessionGroup.Key; isZippingState[sessionId] = true; await InvokeAsync(StateHasChanged); try { var filesToZip = new List<object>(); var downloadTasks = sessionGroup.Select(async entry => { try { var imageUrl = $"http://localhost:8000/{entry.Path}"; var imageBytes = await Http.GetByteArrayAsync(imageUrl); return new { name = entry.FileName, data = Convert.ToBase64String(imageBytes) }; } catch (Exception ex) { Logger.LogWarning(ex, "Could not download image {FileName} for zipping.", entry.FileName); return null; } }); var results = await Task.WhenAll(downloadTasks); filesToZip.AddRange(results.Where(f => f != null)!); if (filesToZip.Any()) { string safeFileName = GetGroupHeaderText(sessionGroup).Replace(":", "-").Replace(",", ""); string zipFileName = $"{safeFileName}.zip"; await JSRuntime.InvokeVoidAsync("triggerZipDownload", zipFileName, filesToZip); } } catch (Exception ex) { Logger.LogError(ex, "Failed to create zip for session {SessionId}", sessionId); await JSRuntime.InvokeVoidAsync("alert", "Failed to create zip file. See console for details."); } finally { isZippingState[sessionId] = false; await InvokeAsync(StateHasChanged); } }
+    private readonly string[] classificationFilters = { "All", "Good", "Focused", "Blurred", "Closed Eye", "Poor Quality", "Duplicate" };
+
     protected override async Task OnInitializedAsync() => await LoadAndProcessHistory();
     private async Task LoadAndProcessHistory() { isLoading = true; try { allHistoryEntries = await Http.GetFromJsonAsync<List<HistoryEntry>>("http://localhost:8000/history"); ApplyFilterAndGrouping(); } catch (Exception ex) { Logger.LogError(ex, "Failed to load history from backend."); allHistoryEntries = new List<HistoryEntry>(); filteredAndGroupedHistory = null; } finally { isLoading = false; } }
     private void ApplyFilter(string newFilter) { currentFilter = newFilter; ApplyFilterAndGrouping(); }

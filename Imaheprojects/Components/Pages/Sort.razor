@@ -1,4 +1,5 @@
-﻿@page "/sort"
+﻿
+@page "/sort"
 @using System.Diagnostics
 @using System.IO
 @using System.Threading
@@ -83,8 +84,6 @@
                             <img src="@preview.ImageDataUrl" alt="@preview.FileName" class="image-thumbnail-img" />
                             <div class="thumbnail-info">
                                 <span class="thumbnail-filename">@preview.FileName</span>
-
-                                <!-- THE DEFINITIVE FIX IS HERE: Replaced dropdown with a simple div -->
                                 @if (preview.ClassificationResult != null)
                                 {
                                     <div class="classification-badge @GetBadgeClass(preview.ClassificationResult.Label)">
@@ -277,7 +276,8 @@
         background-color: #198754;
     }
 
-    .badge-bad, .badge-blurred {
+    /* --- THIS IS THE CSS FIX --- */
+    .badge-poor-quality, .badge-blurred {
         background-color: #dc3545;
     }
 
@@ -303,12 +303,7 @@
         border-color: #badbcc;
     }
 
-    .details-summary.badge-bad {
-        color: #664d03;
-        background-color: #fff3cd;
-        border-color: #ffecb5;
-    }
-
+    .details-summary.badge-poor-quality,
     .details-summary.badge-blurred {
         color: #58151c;
         background-color: #f8d7da;
@@ -345,7 +340,9 @@
     private Stopwatch processingStopwatch = new Stopwatch();
     private string formattedDuration = "";
     private int selectedIndex = 0;
-    private readonly string[] ClassificationFolders = { "Good", "Focused", "Blurred", "Closed Eye", "Duplicate" };
+
+    // --- THIS IS THE LOGIC FIX FOR MOVING FILES ---
+    private readonly string[] ClassificationFolders = { "Good", "Focused", "Blurred", "Closed Eye", "Duplicate", "Poor Quality" };
     private readonly string[] AllowedExtensions = { ".jpg", ".jpeg", ".png", ".bmp", ".webp" };
     private Timer? uiUpdateTimer;
 

@@ -28,72 +28,42 @@
         }
         else
         {
-            <div class="settings-grid">
-                <div class="settings-card">
-                    <div class="card-header"><span class="oi oi-image me-2"></span>Image Quality</div>
-                    <div class="card-body">
-                        <div class="setting-item">
-                            <div class="icon-wrapper"><span class="oi oi-moon"></span></div>
-                            <div>
-                                <label for="minExposure" class="form-label">Minimum Exposure</label>
-                                <input id="minExposure" type="number" class="form-control" @bind="settingsModel.MinExposure" />
-                                <div class="form-text">Flags photos that are too dark. <strong>Recommended: 50</strong></div>
-                            </div>
-                        </div>
-                        <div class="setting-item">
-                            <div class="icon-wrapper"><span class="oi oi-sun"></span></div>
-                            <div>
-                                <label for="maxExposure" class="form-label">Maximum Exposure</label>
-                                <input id="maxExposure" type="number" class="form-control" @bind="settingsModel.MaxExposure" />
-                                <div class="form-text">Flags photos that are too bright. <strong>Recommended: 200</strong></div>
-                            </div>
-                        </div>
-                        <div class="setting-item">
-                            <div class="icon-wrapper"><span class="oi oi-magnifying-glass"></span></div>
-                            <div>
-                                <label for="minSharpness" class="form-label">Minimum Sharpness</label>
-                                <input id="minSharpness" type="number" class="form-control" @bind="settingsModel.MinSharpness" />
-                                <div class="form-text">Flags photos where the main subject is blurry. <strong>Recommended: 100</strong></div>
-                            </div>
+            <div class="settings-card" style="margin-bottom: 2rem;">
+                <div class="card-header"><span class="oi oi-image me-2"></span>Image Quality</div>
+                <div class="card-body">
+                    <div class="setting-item">
+                        <div class="icon-wrapper"><span class="oi oi-moon"></span></div>
+                        <div>
+                            <label for="minExposure" class="form-label">Minimum Exposure</label>
+                            <input id="minExposure" type="number" class="form-control" @bind="settingsModel.MinExposure" />
+                            @* UPDATED: Changed 'Blurred' to 'Poor Quality' *@
+                            <div class="form-text">Classifies photos as 'Poor Quality' if they are too dark. <strong>Recommended: 50</strong></div>
                         </div>
                     </div>
-                </div>
-
-                <div class="settings-card">
-                    <div class="card-header"><span class="oi oi-people me-2"></span>Face & Focus Analysis</div>
-                    <div class="card-body">
-                        <div class="setting-item">
-                            <div class="icon-wrapper"><span class="oi oi-star"></span></div>
-                            <div>
-                                <label for="verySharpThreshold" class="form-label">"Very Sharp" Threshold</label>
-                                <input id="verySharpThreshold" type="number" class="form-control" @bind="settingsModel.VerySharpThreshold" />
-                                <div class="form-text">A subject must be sharper than this to be "Focused". <strong>Recommended: 250</strong></div>
-                            </div>
+                    <div class="setting-item">
+                        <div class="icon-wrapper"><span class="oi oi-sun"></span></div>
+                        <div>
+                            <label for="maxExposure" class="form-label">Maximum Exposure</label>
+                            <input id="maxExposure" type="number" class="form-control" @bind="settingsModel.MaxExposure" />
+                            @* UPDATED: Changed 'Blurred' to 'Poor Quality' *@
+                            <div class="form-text">Classifies photos as 'Poor Quality' if they are too bright. <strong>Recommended: 200</strong></div>
                         </div>
-                        <div class="setting-item">
-                            <div class="icon-wrapper"><span class="oi oi-fullscreen-exit"></span></div>
-                            <div>
-                                <label for="focusedRatio" class="form-label">Focus Ratio</label>
-                                <input id="focusedRatio" type="number" step="0.1" class="form-control" @bind="settingsModel.FocusedRatio" />
-                                <div class="form-text">How much sharper a subject must be than the background. <strong>Recommended: 1.75</strong></div>
-                            </div>
-                        </div>
-                        <div class="setting-item">
-                            <div class="icon-wrapper"><span class="oi oi-eye"></span></div>
-                            <div>
-                                <label for="closedEyePercentage" class="form-label">Closed Eye Tolerance</label>
-                                <input id="closedEyePercentage" type="number" step="0.1" max="1" min="0" class="form-control" @bind="settingsModel.ClosedEyePercentage" />
-                                <div class="form-text">Flags photos if this percentage of people are blinking (0.5 = 50%). <strong>Recommended: 0.5</strong></div>
-                            </div>
+                    </div>
+                    <div class="setting-item">
+                        <div class="icon-wrapper"><span class="oi oi-magnifying-glass"></span></div>
+                        <div>
+                            <label for="minSharpness" class="form-label">Minimum Sharpness</label>
+                            <input id="minSharpness" type="number" class="form-control" @bind="settingsModel.MinSharpness" />
+                            <div class="form-text">Classifies photos as 'Blurred' if the main subject isn't sharp enough. <strong>Recommended: 100</strong></div>
                         </div>
                     </div>
                 </div>
             </div>
 
             <div class="settings-card summary-card">
-                <div class="card-header"><span class="oi oi-task me-2"></span>Your AI Assistant's Instructions</div>
+                <div class="card-header"><span class="oi oi-task me-2"></span>Imahe's Sorting Guide</div>
                 <div class="card-body summary-body">
-                    <p>With these settings, here is my current sorting strategy:</p>
+                    <p>Based on your settings, here is Imahe's detailed strategy for sorting your photos:</p>
                     @GetSettingsSummary()
                 </div>
                 <div class="card-footer">
@@ -103,12 +73,12 @@
                         {
                             <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                             <span class="ms-1">Saving...</span>
-    }
+                        }
                         else
                         {
                             <span class="oi oi-check"></span>
                             <span> Save Changes</span>
-    }
+                        }
                     </button>
                 </div>
             </div>
@@ -150,13 +120,6 @@
         margin-bottom: 2.5rem;
     }
 
-    .settings-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 2rem;
-        margin-bottom: 2rem;
-    }
-
     .settings-card {
         background-color: #ffffff;
         border: 1px solid #dee2e6;
@@ -180,7 +143,7 @@
         padding: 1.5rem;
         display: flex;
         flex-direction: column;
-        gap: 1.75rem;
+        gap: 1rem;
     }
 
     .card-footer {
@@ -224,7 +187,10 @@
     }
 
     .summary-card {
-        grid-column: 1 / -1;
+    }
+
+    .summary-body p {
+        margin-bottom: 0.5rem;
     }
 
     .summary-body ul {
@@ -247,35 +213,6 @@
     .summary-body .oi {
         font-size: 1.1rem;
         margin-top: 0.2rem;
-    }
-
-    .rec-level {
-        font-size: 0.75rem;
-        font-weight: 600;
-        padding: 0.2rem 0.5rem;
-        border-radius: 1rem;
-        color: #495057;
-    }
-
-    .rec-balanced {
-        background-color: #d1e7dd;
-        color: #0f5132;
-    }
-
-    .rec-relaxed {
-        background-color: #cce5ff;
-        color: #052c65;
-    }
-
-    .rec-strict {
-        background-color: #f8d7da;
-        color: #58151c;
-    }
-
-    @@media (max-width: 768px) {
-        .settings-grid {
-            grid-template-columns: 1fr;
-        }
     }
 </style>
 
@@ -308,7 +245,6 @@
         errorMessage = null;
         try
         {
-            // We need to send ALL the properties back to the backend, including the float values
             var response = await Http.PostAsJsonAsync("http://localhost:8000/settings", settingsModel);
             if (response.IsSuccessStatusCode)
             {
@@ -335,16 +271,11 @@
         bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to reset all settings to their recommended defaults?");
         if (confirmed && settingsModel != null)
         {
-            // Reset to hardcoded recommended defaults (matching DEFAULT_SETTINGS in main.py)
             settingsModel = new SettingsModel
             {
                 MinExposure = 50,
                 MaxExposure = 200,
-                MinSharpness = 100,
-                VerySharpThreshold = 250,
-                FocusedRatio = 1.75f,
-                ClosedEyePercentage = 0.5f,
-                EyeAspectRatio = 0.25f
+                MinSharpness = 100
             };
             await SaveChanges();
         }
@@ -356,25 +287,26 @@
 
         var summary = new StringBuilder("<ul>");
 
-        // Fixed the summary items to correctly reference the settings model properties
-        summary.Append($"<li><span class='oi oi-ban text-danger'></span><div>I will flag photos that are too dark (below <strong>{settingsModel.MinExposure:F0}</strong>) or too bright (above <strong>{settingsModel.MaxExposure:F0}</strong>).</div></li>");
-        summary.Append($"<li><span class='oi oi-ban text-danger'></span><div>I will flag a photo as 'Blurred' if its sharpest subject is below <strong>{settingsModel.MinSharpness:F0}</strong>.</div></li>");
-        summary.Append($"<li><span class='oi oi-thumb-up text-success'></span><div>I will look for 'Focused' shots where the subject is sharper than <strong>{settingsModel.VerySharpThreshold:F0}</strong> and <strong>{settingsModel.FocusedRatio:F2}x</strong> sharper than the background.</div></li>");
-        summary.Append($"<li><span class='oi oi-ban text-danger'></span><div>I will flag a group photo if <strong>{(settingsModel.ClosedEyePercentage * 100):F0}%</strong> or more of the people are blinking.</div></li>");
+        summary.Append($"<li><span class='oi oi-thumb-up text-success'></span><div>Imahe will classify a photo as <strong>'Good'</strong> if it passes all my quality checks and doesn't have any obvious issues.</div></li>");
+        summary.Append($"<li><span class='oi oi-star text-primary'></span><div>Within the 'Good' photos, Imahe will highlight the absolute best as <strong>'Focused'</strong>. These have a very sharp subject that stands out from a blurred background, based on Imahe's built-in advanced analysis.</div></li>");
+
+        // UPDATED: 'Blurred' description now only refers to sharpness.
+        summary.Append($"<li><span class='oi oi-ban text-danger'></span><div>A photo will be classified as <strong>'Blurred'</strong> if it's out of focus (sharpness is below <strong>{settingsModel.MinSharpness:F0}</strong>).</div></li>");
+
+        // ADDED: New entry for 'Poor Quality' based on exposure settings.
+        summary.Append($"<li><span class='oi oi-thumb-down text-warning'></span><div>A photo will be classified as <strong>'Poor Quality'</strong> if it's too dark (exposure below <strong>{settingsModel.MinExposure:F0}</strong>) or too bright (exposure above <strong>{settingsModel.MaxExposure:F0}</strong>).</div></li>");
+
+        summary.Append($"<li><span class='oi oi-eye text-warning'></span><div>For group photos, Imahe will use built-in closed-eye detection. If too many people have their eyes shut, I'll classify the photo as <strong>'Closed Eyes'</strong>.</div></li>");
+        summary.Append($"<li><span class='oi oi-layers text-info'></span><div>Finally, Imahe will analyze all images to find visually similar shots and classify them as <strong>'Duplicates'</strong>, making it easy for you to pick the best one from a burst.</div></li>");
 
         summary.Append("</ul>");
         return new MarkupString(summary.ToString());
     }
 
-    // --- C# Models to match the Backend (main.py) ---
     public class SettingsModel
     {
         [JsonPropertyName("min_exposure")] public float MinExposure { get; set; }
         [JsonPropertyName("max_exposure")] public float MaxExposure { get; set; }
         [JsonPropertyName("min_sharpness")] public float MinSharpness { get; set; }
-        [JsonPropertyName("focused_ratio")] public float FocusedRatio { get; set; }
-        [JsonPropertyName("very_sharp_threshold")] public float VerySharpThreshold { get; set; }
-        [JsonPropertyName("eye_aspect_ratio")] public float EyeAspectRatio { get; set; }
-        [JsonPropertyName("closed_eye_percentage")] public float ClosedEyePercentage { get; set; }
     }
 }

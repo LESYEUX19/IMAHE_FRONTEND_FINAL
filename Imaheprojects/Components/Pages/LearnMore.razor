@@ -32,28 +32,46 @@
                 <h2 class="accordion-header" id="headingTwo">
                     <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
                         <div class="icon-wrapper bg-info-subtle"><span class="oi oi-magnifying-glass"></span></div>
+                        @* UPDATED: Refined the question to be more specific *@
                         <strong>How does Imahe detect Blurry vs. Focused photos?</strong>
                     </button>
                 </h2>
                 <div id="collapseTwo" class="accordion-collapse collapse" aria-labelledby="headingTwo" data-bs-parent="#faqAccordion">
                     <div class="accordion-body">
+                        @* UPDATED: The text now focuses only on sharpness *@
                         Imahe uses a classic computer vision technique to measure sharpness. For every photo, it calculates a "sharpness score":
                         <ul>
-                            <li>A photo is marked as <strong>'Blurred'</strong> if its main subject's sharpness is below the 'Minimum Sharpness' setting.</li>
+                            <li>A photo is marked as <strong>'Blurred'</strong> if its main subject's sharpness is below the 'Minimum Sharpness' you've set.</li>
                             <li>A photo is marked as <strong>'Focused'</strong> if it has a very sharp subject that is also significantly sharper than the background, creating a professional depth-of-field effect.</li>
                         </ul>
                     </div>
                 </div>
             </div>
 
+            @* ADDED: A new accordion item for the "Poor Quality" category *@
             <div class="accordion-item">
                 <h2 class="accordion-header" id="headingThree">
                     <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseThree" aria-expanded="false" aria-controls="collapseThree">
+                        <div class="icon-wrapper bg-warning-subtle"><span class="oi oi-contrast"></span></div>
+                        <strong>How does Imahe detect Poor Quality photos?</strong>
+                    </button>
+                </h2>
+                <div id="collapseThree" class="accordion-collapse collapse" aria-labelledby="headingThree" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body">
+                        This category is for photos with exposure problems. Imahe calculates the average brightness of each photo. If the brightness is too low (below 'Minimum Exposure') or too high (above 'Maximum Exposure'), the photo is classified as <strong>'Poor Quality'</strong>. This helps you easily find and filter out photos that are too dark or completely washed out.
+                    </div>
+                </div>
+            </div>
+
+            @* UPDATED: All subsequent items have been re-numbered (e.g., headingThree -> headingFour) *@
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="headingFour">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFour" aria-expanded="false" aria-controls="collapseFour">
                         <div class="icon-wrapper bg-danger-subtle"><span class="oi oi-eye"></span></div>
                         <strong>How does Imahe detect Closed Eyes?</strong>
                     </button>
                 </h2>
-                <div id="collapseThree" class="accordion-collapse collapse" aria-labelledby="headingThree" data-bs-parent="#faqAccordion">
+                <div id="collapseFour" class="accordion-collapse collapse" aria-labelledby="headingFour" data-bs-parent="#faqAccordion">
                     <div class="accordion-body">
                         Imahe uses a two-step AI process. First, it finds every face in the photo. Then, for each face, it locates the eyes and measures how open they are. If too many people are blinking (based on the percentage you set in Settings), the photo is flagged as <strong>'Closed Eye'</strong> so you can find a better take.
                     </div>
@@ -61,13 +79,13 @@
             </div>
 
             <div class="accordion-item">
-                <h2 class="accordion-header" id="headingFour">
-                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFour" aria-expanded="false" aria-controls="collapseFour">
+                <h2 class="accordion-header" id="headingFive">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFive" aria-expanded="false" aria-controls="collapseFive">
                         <div class="icon-wrapper bg-secondary-subtle"><span class="oi oi-layers"></span></div>
                         <strong>How does Imahe find Duplicate photos?</strong>
                     </button>
                 </h2>
-                <div id="collapseFour" class="accordion-collapse collapse" aria-labelledby="headingFour" data-bs-parent="#faqAccordion">
+                <div id="collapseFive" class="accordion-collapse collapse" aria-labelledby="headingFive" data-bs-parent="#faqAccordion">
                     <div class="accordion-body">
                         Imahe creates a unique visual "fingerprint" for every photo in a session. This allows it to find photos that look the same, even if they've been resized or saved with a different name. This helps you clean up burst shots and find the single best version of a photo.
                     </div>
@@ -75,13 +93,13 @@
             </div>
 
             <div class="accordion-item">
-                <h2 class="accordion-header" id="headingFive">
-                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFive" aria-expanded="false" aria-controls="collapseFive">
+                <h2 class="accordion-header" id="headingSix">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSix" aria-expanded="false" aria-controls="collapseSix">
                         <div class="icon-wrapper bg-success-subtle"><span class="oi oi-wrench"></span></div>
                         <strong>Can I change how Imahe sorts the photos?</strong>
                     </button>
                 </h2>
-                <div id="collapseFive" class="accordion-collapse collapse" aria-labelledby="headingFive" data-bs-parent="#faqAccordion">
+                <div id="collapseSix" class="accordion-collapse collapse" aria-labelledby="headingSix" data-bs-parent="#faqAccordion">
                     <div class="accordion-body">
                         Of course! The <strong>Settings</strong> page is your command center. You can adjust all the parameters to match your personal definition of a "good" photo. Your settings are saved automatically, so Imahe will always remember how you like to work.
                     </div>
@@ -89,13 +107,13 @@
             </div>
 
             <div class="accordion-item">
-                <h2 class="accordion-header" id="headingSix">
-                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSix" aria-expanded="false" aria-controls="collapseSix">
+                <h2 class="accordion-header" id="headingSeven">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSeven" aria-expanded="false" aria-controls="collapseSeven">
                         <div class="icon-wrapper bg-dark-subtle"><span class="oi oi-lock-locked"></span></div>
                         <strong>Is my data safe and private?</strong>
                     </button>
                 </h2>
-                <div id="collapseSix" class="accordion-collapse collapse" aria-labelledby="headingSix" data-bs-parent="#faqAccordion">
+                <div id="collapseSeven" class="accordion-collapse collapse" aria-labelledby="headingSeven" data-bs-parent="#faqAccordion">
                     <div class="accordion-body">
                         <strong>Yes, 100%.</strong> Imahe is designed to be a completely offline tool. Your photos are never uploaded to any cloud or server. All analysis happens right on your computer, so your memories always stay private and secure with you.
                     </div>
